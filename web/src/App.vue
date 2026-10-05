@@ -15,7 +15,7 @@
     <main class="grid">
       <!-- 左列 -->
       <section class="panel left">
-        <h3>城市岗位 TOP10</h3>
+        <h3>城市/省份岗位 TOP10</h3>
         <div ref="cityRankEl" class="chart"></div>
       </section>
 
@@ -38,8 +38,14 @@
 
       <!-- 底栏 -->
       <section class="panel bottom">
-        <h3>薪资日薪分布（分城市，箱线中位数展示）</h3>
-        <div ref="salaryEl" class="chart wide"></div>
+        <div class="half">
+          <h3>薪资日薪分布（分城市，中位数）</h3>
+          <div ref="salaryEl" class="chart wide"></div>
+        </div>
+        <div class="half">
+          <h3>技能共现网络（同一岗位出现的技能组合）</h3>
+          <div ref="coocEl" class="chart wide"></div>
+        </div>
       </section>
     </main>
   </div>
@@ -61,12 +67,14 @@ const metrics = computed(() => overview.value ? [
 const layers = reactive([
   { id: 'choropleth', name: '省份岗位分级', on: true, layer: null },
   { id: 'heatmap', name: '点位热力', on: true, layer: null },
+  { id: 'flows', name: '流向连线', on: false, layer: null },
   { id: 'points', name: '聚合点', on: false, layer: null },
 ]);
 
 const cityRankEl = ref(null);
 const skillEl = ref(null);
 const salaryEl = ref(null);
+const coocEl = ref(null);
 
 function darkChart(title) {
   return {
@@ -137,6 +145,34 @@ async function loadCharts() {
       barWidth: 14,
     }],
   });
+
+  // 技能共现网络：节点=TOP18 技能，边=同岗位共现
+  const coocData = await (await fetch('/api/stats/skills?top=18')).json();
+  const nodeSet = new Set(Object.keys(coocData.freq));
+  const nodes = Object.entries(coocData.freq).map(([name, count]) => ({
+    name, symbolSize: 10 + Math.sqrt(count) * 4,
+    itemStyle: { color: '#2ee6e6' },
+    label: { show: true, color: '#d8e4ff', fontSize: 10 },
+  }));
+  const links = Object.entries(coocData.cooc)
+    .map(([pair, count]) => {
+      const [s, t] = pair.split('|');
+      return { source: s, target: t, count };
+    })
+    .filter((l) => nodeSet.has(l.source) && nodeSet.has(l.target) && l.count >= 2)
+    .map((l) => ({
+      ...l,
+      lineStyle: { width: 1 + Math.log2(l.count), color: 'rgba(122,123,255,0.5)', curveness: 0.15 },
+    }));
+  echarts.init(coocEl.value).setOption({
+    ...darkChart(),
+    series: [{
+      type: 'graph', layout: 'force', roam: false,
+      data: nodes, links,
+      force: { repulsion: 220, edgeLength: 60, gravity: 0.15 },
+      emphasis: { focus: 'adjacency' },
+    }],
+  });
 }
 
 function toggleLayer(opt) {
@@ -153,6 +189,7 @@ onMounted(async () => {
 
 <style scoped>
 .dashboard { display: flex; flex-direction: column; height: 100%; }
+.panel { display: flex; flex-direction: column; }
 
 .topbar {
   display: flex; align-items: center; gap: 24px;
@@ -180,10 +217,11 @@ onMounted(async () => {
 }
 .left { grid-row: 1; }
 .right { grid-row: 1; }
-.bottom { grid-column: 1 / 4; }
+.bottom { grid-column: 1 / 4; display: grid; grid-template-columns: 1fr 1fr; }
+.half { display: flex; flex-direction: column; min-width: 0; border-left: 1px solid var(--border); }
+.half:first-child { border-left: none; }
 .chart { flex: 1; min-height: 0; }
 .chart.wide { height: 150px; }
-.panel { display: flex; flex-direction: column; }
 
 .map-wrap { position: relative; grid-row: 1; }
 #map { position: absolute; inset: 0; border: 1px solid var(--border); border-radius: 6px; }

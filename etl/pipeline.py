@@ -119,6 +119,9 @@ def main():
         j.update(parse_salary(j['salary_raw']))
         if j['province'] in MUNICIPALITIES:
             j['city'] = j['province']
+        elif norm_province(j['city']) == j['province']:
+            # 城市字段填的是省名（如 city=浙江），归一为省级全称
+            j['city'] = j['province']
 
     if geocoder:
         prov_cache = {}

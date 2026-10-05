@@ -1,6 +1,6 @@
-// L7 地图初始化：L7 内置引擎（无第三方 JS API 依赖）+ 三层可切换图层
+// L7 地图初始化：L7 内置引擎（无第三方 JS API 依赖）+ 四层可切换图层
 // 坐标系：数据与省界 GeoJSON 均为 GCJ-02，自洽无需转换
-import { HeatmapLayer, PointLayer, PolygonLayer, Popup, Scene } from '@antv/l7';
+import { HeatmapLayer, LineLayer, PointLayer, PolygonLayer, Popup, Scene } from '@antv/l7';
 import { Map } from '@antv/l7-maps';
 
 const CHORO_COLORS = ['#12315e', '#1c4e8a', '#2e79c9', '#2fb3e8', '#2ee6e6', '#a7f3f3'];
@@ -34,6 +34,22 @@ export async function initMap(layers) {
     .active({ color: 'rgba(255,255,255,0.25)' });
   scene.addLayer(choropleth);
   layers.find((l) => l.id === 'choropleth').layer = choropleth;
+
+  // ---- 流向连线：各城市 → 省内/就近集聚地（示意） ----
+  const flows = await fetch('/api/flows').then((r) => r.json());
+  const arc = new LineLayer({ zIndex: 2, blend: 'additive' })
+    .source(flows)
+    .shape('arc')
+    .size(1.2)
+    .color('count', ['#2ee6e6', '#7a7bff', '#ff7b50'])
+    .style({ opacity: 0.55 });
+  scene.addLayer(arc);
+  layers.find((l) => l.id === 'flows').layer = arc;
+
+  // 按面板初始状态同步图层显隐（默认关的图层不显示）
+  for (const opt of layers) {
+    if (opt.layer && !opt.on) opt.layer.hide();
+  }
 
   // ---- 数据源：岗位点（GCJ-02） ----
   const geojson = await fetch('/api/jobs').then((r) => r.json());

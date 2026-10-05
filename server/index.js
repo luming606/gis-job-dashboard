@@ -124,5 +124,54 @@ app.get('/api/region-heat', (req, res) => {
   res.json({ level, counts });
 });
 
+// 城市间岗位流向示意：非头部城市 → 省内最大集聚地（无则最近的全国头部城市）
+function haversine(a, b) {
+  const R = 6371, rad = (d) => (d * Math.PI) / 180;
+  const dLat = rad(b[1] - a[1]), dLng = rad(b[0] - a[0]);
+  const h = Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+app.get('/api/flows', (req, res) => {
+  // city → {count, province, coordinates}（取该城市任一条岗位的坐标即可，同城偏差可忽略）
+  const cities = {};
+  for (const j of valid) {
+    const c = (cities[j.city] ??= {
+      count: 0, province: j.province, coordinates: [j.lng, j.lat],
+    });
+    c.count += 1;
+  }
+  const ranked = Object.entries(cities).sort((a, b) => b[1].count - a[1].count);
+  const hubs = ranked.slice(0, 5).map(([name]) => name);
+  const hubSet = new Set(hubs);
+
+  const features = [];
+  for (const [name, c] of ranked) {
+    if (hubSet.has(name)) continue;
+    // 优先省内最大 hub，否则最近 hub
+    let target = null;
+    for (const [hub, hc] of ranked.slice(0, 5)) {
+      if (hc.province === c.province) { target = hub; break; }
+    }
+    if (!target) {
+      let best = Infinity;
+      for (const hub of hubs) {
+        const d = haversine(c.coordinates, cities[hub].coordinates);
+        if (d < best) { best = d; target = hub; }
+      }
+    }
+    features.push({
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: [c.coordinates, cities[target].coordinates],
+      },
+      properties: { from: name, to: target, count: c.count },
+    });
+  }
+  res.json({ type: 'FeatureCollection', features });
+});
+
 const PORT = process.env.PORT || 3111;
 app.listen(PORT, () => console.log(`API ready: http://localhost:${PORT} (${jobs.length} jobs)`));
