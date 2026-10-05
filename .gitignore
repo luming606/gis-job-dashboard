@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+etl/.geocode_cache.json
+data/
+node_modules/
+web/dist/
+*.mbtiles
+*.log
+.DS_Store

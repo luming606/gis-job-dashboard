@@ -1,0 +1,98 @@
+[
+  {
+    "company": "易智瑞信息技术有限公司（Esri中国）",
+    "title": "WebGIS前端开发实习生",
+    "city": "武汉",
+    "address": "湖北省武汉市武昌区中北路86号汉街总部国际B座1305室",
+    "requirements": "WebGIS前端开发实习生，150-200元/天；同分公司另有产品技术实习生（150-200元/天）。要求WebGIS/前端方向，具体以智联岗位页为准。",
+    "skills": ["JavaScript", "OpenLayers", "ArcGIS", "HTML/CSS"],
+    "salary": "150-200元/天",
+    "source_url": "https://www.zhaopin.com",
+    "collected_date": "2026-10-05",
+    "notes": "智联招聘在招（2026年10月检索确认）。Esri中国代理商，GIS行业认可度高，适合简历。投递方式：智联App搜「易智瑞 实习生 武汉」。28届大三在读可投实习生岗。地址经高德POI核实（2026-10-05）。"
+  },
+  {
+    "company": "湖北北半球勘测设计有限公司",
+    "title": "测量实习生",
+    "city": "武汉",
+    "address": "武汉",
+    "requirements": "测量/测绘实习，学历不限，招20人，月薪2000-4000元。私营勘测设计企业，偏外业测量实践。",
+    "skills": ["CAD", "CASS"],
+    "salary": "2000-4000元/月",
+    "source_url": "https://www.cehuiyc.com",
+    "collected_date": "2026-10-05",
+    "notes": "测绘英才网2026-05-26发布，批量招聘，需电话确认是否仍在招。偏外业，适合练基本功， GIS开发方向含金量一般。详情在 cehuiyc.com 搜公司名。高德POI未收录该公司，导入后在编辑页用「地图选点」手工定位。"
+  },
+  {
+    "company": "武汉天耀宏图科技有限公司",
+    "title": "测绘/GIS/制图实习生",
+    "city": "武汉",
+    "address": "湖北省武汉市洪山区花城大道软件新城C23栋5楼",
+    "requirements": "云GIS、大数据方向公司，招测绘、GIS、测量、制图方向实习生，大专学历即可。",
+    "skills": ["ArcGIS", "专题制图", "空间数据可视化"],
+    "salary": "",
+    "source_url": "http://mp.weixin.qq.com/s?src=11&timestamp=1791198493&ver=7008&signature=bTGosSPlZhKKTFmxXVSn50QHvW1wc7iY40qYvtSEMAAToNc0Vx4TFfW29G7jgxrXedDKCRdCb4k7d00CChU8UiNXKSVneMZcrtbco92GrOBuVCdft697*QgaJrrYqzAK&new=1",
+    "collected_date": "2026-10-05",
+    "notes": "2026-09-23微信公众号发布招聘简章（近一月内，时效较好）。此链接带时效签名可能过期，失效则在微信搜「天耀宏图 招聘」。学历门槛低。"
+  },
+  {
+    "company": "湖北地信科技集团股份有限公司",
+    "title": "实习生（地信方向）",
+    "city": "武汉",
+    "address": "武汉市江夏区北斗大厦高新大道980号七楼",
+    "requirements": "省属地理信息科技集团，BOSS直聘在招多个岗位，含实习生岗；业务覆盖GIS平台与行业应用。",
+    "skills": ["GIS桌面软件", "空间数据库"],
+    "salary": "",
+    "source_url": "https://www.zhipin.com",
+    "collected_date": "2026-10-05",
+    "notes": "工作地址明确（光谷北斗大厦，离武大不远），2026年10月BOSS直聘在招。实习岗详情需在BOSS直聘App搜「湖北地信科技集团」。28届可投。"
+  },
+  {
+    "company": "武汉珈和科技有限公司",
+    "title": "GIS数据处理员（实习/兼职）",
+    "city": "武汉",
+    "address": "湖北省武汉市江夏区关东街道汤逊湖北路8号东湖高新区大学科技园知新楼1楼",
+    "requirements": "遥感农业数据公司，招GIS数据处理实习/兼职，涉及遥感影像处理与地块数据工作。",
+    "skills": ["ArcGIS", "遥感影像处理", "遥感解译", "GeoPandas"],
+    "salary": "",
+    "source_url": "https://www.yingjiesheng.com",
+    "collected_date": "2026-10-05",
+    "notes": "应届生求职网历史发布，该公司常年招数据处理实习/兼职（农业遥感业务量大），适合在校生练手攒经验。当期岗位在BOSS直聘/实习僧搜「珈和科技」。地址经高德POI核实（2026-10-05）。"
+  },
+  {
+    "company": "武汉数文科技有限公司",
+    "title": "GIS开发实习工程师",
+    "city": "武汉",
+    "address": "武汉",
+    "requirements": "GIS开发实习工程师，对ArcGIS Server等GIS平台有经验者优先考虑。数字文化遗产/文保信息化方向公司。",
+    "skills": ["ArcGIS", "GeoServer", "JavaScript"],
+    "salary": "",
+    "source_url": "https://www.yingjiesheng.com",
+    "collected_date": "2026-10-05",
+    "notes": "应届生求职网发布的武汉校园招聘，发布时间较早，投递前需确认岗位是否仍开放；公司体量小但GIS开发方向对口。高德POI未收录该公司，导入后在编辑页用「地图选点」手工定位。"
+  },
+  {
+    "company": "微云（武汉）科技有限公司",
+    "title": "地理信息系统专业实习/兼职",
+    "city": "武汉",
+    "address": "武汉",
+    "requirements": "面向地理信息系统专业在校生的实习/兼职岗位，经武汉大学资源与环境科学学院官网发布。",
+    "skills": [],
+    "salary": "",
+    "source_url": "http://sres.whu.edu.cn",
+    "collected_date": "2026-10-05",
+    "notes": "来源为武大资环学院官网（sres.whu.edu.cn），面向本院系学生的企业合作岗，信任度高。具体在学院官网「学生工作/通知公告」栏目搜「微云」。"
+  },
+  {
+    "company": "北京超图软件股份有限公司（SuperMap）",
+    "title": "项目实施实习生",
+    "city": "武汉",
+    "address": "武汉（超图武汉分公司，具体地址投递时确认）",
+    "requirements": "本科及以上，计算机/GIS/测绘相关专业，大三及研二优先；熟练使用办公软件，有SuperMap相关能力优先，能适应出差。",
+    "skills": ["SuperMap", "GIS桌面软件"],
+    "salary": "",
+    "source_url": "https://www.shixiseng.com",
+    "collected_date": "2026-10-05",
+    "notes": "实习僧在招（2026年10月检索确认）。明确「大三优先」——28届本科现在大三，完全对口。GIS头部国产厂商，转正机会好；需确认武汉分公司是否有此岗名额。高德POI未收录武汉分公司，导入后在编辑页用「地图选点」手工定位。"
+  }
+]
