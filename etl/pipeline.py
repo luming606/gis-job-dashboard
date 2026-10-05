@@ -23,6 +23,8 @@ PROVINCE_FULL = {
     '香港': '香港特别行政区', '澳门': '澳门特别行政区', '台湾': '台湾省',
 }
 JOB_TYPES = ('intern', 'campus', 'social')
+# 直辖市的区（大兴/海淀/浦东）不应作独立城市，统一归到直辖市
+MUNICIPALITIES = ('北京市', '上海市', '天津市', '重庆市')
 
 
 def norm_province(p):
@@ -115,6 +117,8 @@ def main():
 
     for j in jobs:
         j.update(parse_salary(j['salary_raw']))
+        if j['province'] in MUNICIPALITIES:
+            j['city'] = j['province']
 
     if geocoder:
         prov_cache = {}
