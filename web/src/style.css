@@ -32,3 +32,8 @@ body {
   padding: 10px 14px 6px;
   letter-spacing: 2px;
 }
+
+/* 隐藏 L7 内置 logo 水印（开源版允许；归属信息保留在 README 与地图 attribution） */
+.l7-logo {
+  display: none !important;
+}

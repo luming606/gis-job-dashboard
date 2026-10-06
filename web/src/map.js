@@ -51,15 +51,15 @@ function omtDarkStyle() {
         id: 'transportation', type: 'line', source: 'omt', 'source-layer': 'transportation',
         paint: {
           'line-color': ['match', ['get', 'class'],
-            ['motorway', 'trunk'], '#3d5aa0',
-            ['primary', 'secondary'], '#2f4270',
-            '#243356'],
-          'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 1, 12, 2.2],
+            ['motorway', 'trunk'], '#4a6ab8',
+            ['primary', 'secondary'], '#3a5288',
+            '#2b3d66'],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.6, 8, 1.4, 12, 2.6],
         },
       },
       {
         id: 'boundary', type: 'line', source: 'omt', 'source-layer': 'boundary',
-        paint: { 'line-color': '#3c4e80', 'line-width': 0.7, 'line-dasharray': [2, 2] },
+        paint: { 'line-color': '#46598f', 'line-width': 0.9, 'line-dasharray': [2, 2] },
       },
     ],
   };
@@ -83,7 +83,7 @@ export async function initMap(layers) {
   const mapEngine = useTiles
     ? new MapLibre({ center: [112.5, 33.5], zoom: 4.2, style: omtDarkStyle() })
     : new Map({ center: [112.5, 33.5], zoom: 4.2, style: { background: '#0b1026' } });
-  const scene = new Scene({ id: 'map', map: mapEngine });
+  const scene = new Scene({ id: 'map', map: mapEngine, logoVisible: false });
 
   // 底图坐标系为 WGS-84 时，所有 GCJ-02 数据统一逆转换后再上图
   const toDisplayCoords = (geojson) => (useTiles ? gcj02GeoJsonToWgs84(geojson) : geojson);
@@ -104,7 +104,7 @@ export async function initMap(layers) {
       const c = countByProvince[name] || 0;
       return CHORO_COLORS[Math.min(Math.floor((c / maxCount) * CHORO_COLORS.length), CHORO_COLORS.length - 1)];
     })
-    .style({ opacity: 0.85 })
+    .style({ opacity: 0.72 })
     .active({ color: 'rgba(255,255,255,0.25)' });
   scene.addLayer(choropleth);
   layers.find((l) => l.id === 'choropleth').layer = choropleth;

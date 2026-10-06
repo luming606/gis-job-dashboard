@@ -11,3 +11,4 @@ tiles/
 tiles/tmp/
 *.log
 .DS_Store
+web/shot-*.png
