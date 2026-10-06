@@ -42,6 +42,11 @@
           </div>
           <div class="tl-count">累计 {{ curCount }} 条</div>
         </div>
+        <div class="legend panel">
+          <span class="lg-label">岗位少</span>
+          <span class="lg-swatch" v-for="(c, i) in legendColors" :key="i" :style="{ background: c }"></span>
+          <span class="lg-label">岗位多</span>
+        </div>
       </section>
 
       <!-- 右列 -->
@@ -85,6 +90,9 @@ const layers = reactive([
   { id: 'flows', name: '流向连线', on: false, layer: null },
   { id: 'points', name: '聚合点', on: false, layer: null },
 ]);
+
+// 分级统计图色带图例（与 map.js 的 CHORO_COLORS 保持一致）
+const legendColors = ['#12315e', '#1c4e8a', '#2e79c9', '#2fb3e8', '#2ee6e6', '#a7f3f3'];
 
 const cityRankEl = ref(null);
 const skillEl = ref(null);
@@ -183,13 +191,20 @@ async function loadCharts() {
       axisLabel: { color: '#d8e4ff', rotate: 30 },
       axisLine: { lineStyle: { color: '#486eda' } },
     },
-    yAxis: { type: 'value', axisLabel: { color: '#7f92c2' }, splitLine: { lineStyle: { color: 'rgba(72,110,218,0.2)' } } },
+    yAxis: { type: 'value', name: '日薪(元)', nameTextStyle: { color: '#7f92c2' }, axisLabel: { color: '#7f92c2' }, splitLine: { lineStyle: { color: 'rgba(72,110,218,0.2)' } } },
     series: [{
-      name: '日薪中位数',
-      type: 'bar',
-      data: rows.map(([, b]) => Math.round(b.median)),
-      itemStyle: { color: '#39d98a', borderRadius: 4 },
-      barWidth: 14,
+      name: '薪资分布',
+      type: 'boxplot',
+      data: rows.map(([, b]) =>
+        [b.min, b.q1, b.median, b.q3, b.max].map((v) => Math.round(v))),
+      itemStyle: { color: 'rgba(46,230,230,0.25)', borderColor: '#2ee6e6', borderWidth: 1.2 },
+      boxWidth: [10, 22],
+      tooltip: {
+        formatter: (p) => {
+          const [mi, q1, md, q3, ma] = p.value;
+          return `${p.name}<br/>最高 ${ma} ｜ Q3 ${q3}<br/>中位 ${md}<br/>Q1 ${q1} ｜ 最低 ${mi}`;
+        },
+      },
     }],
   });
 
@@ -300,4 +315,12 @@ onMounted(async () => {
   border-bottom: 2px solid var(--cyan);
 }
 .timeline .tl-count { color: #fff; font-weight: 600; }
+
+.legend {
+  position: absolute; left: 12px; top: 12px; z-index: 10;
+  display: flex; align-items: center; gap: 4px;
+  padding: 8px 12px; font-size: 11px;
+}
+.legend .lg-label { color: var(--dim); }
+.legend .lg-swatch { width: 16px; height: 10px; border-radius: 2px; }
 </style>

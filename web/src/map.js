@@ -1,4 +1,4 @@
-// L7 地图初始化：L7 内置引擎（无第三方 JS API 依赖）+ 四层可切换图层
+﻿// L7 地图初始化：L7 内置引擎（无第三方 JS API 依赖）+ 四层可切换图层
 // 坐标系：数据与省界 GeoJSON 均为 GCJ-02，自洽无需转换
 import { HeatmapLayer, LineLayer, PointLayer, PolygonLayer, Popup, Scene } from '@antv/l7';
 import { Map } from '@antv/l7-maps';
@@ -36,6 +36,29 @@ export async function initMap(layers) {
   scene.addLayer(choropleth);
   layers.find((l) => l.id === 'choropleth').layer = choropleth;
 
+  // ---- 省级下钻：点击省面弹出该省明细 ----
+  const provinceStats = await getJson('/api/stats/province-stats');
+  const topEntries = (obj, n) => Object.entries(obj || {})
+    .sort((a, b) => b[1] - a[1]).slice(0, n);
+  choropleth.on('click', (e) => {
+    const name = e.feature?.properties?.name;
+    const s = provinceStats[name];
+    if (!s) return;
+    const cities = topEntries(s.cities, 5)
+      .map(([c, n]) => `${c} ${n}`).join('、');
+    const skills = topEntries(s.skills, 5)
+      .map(([k]) => k).join(' / ');
+    const salary = s.avg_daily ? `平均日薪 ¥${s.avg_daily}` : '薪资样本不足';
+    new Popup({ anchors: 'bottom' })
+      .setLnglat(e.lngLat)
+      .setHTML(`<div style="font-size:13px;line-height:1.8;color:#1a1a2e;max-width:260px">
+        <b>${name}</b> · ${s.total} 条岗位 · ${salary}<br/>
+        城市：${cities || '—'}<br/>
+        热门技能：${skills || '—'}
+      </div>`)
+      .addTo(scene);
+  });
+
   // ---- 流向连线：各城市 → 省内/就近集聚地（示意） ----
   const flows = await getJson('/api/flows');
   const arc = new LineLayer({ zIndex: 2, blend: 'additive' })
@@ -43,7 +66,7 @@ export async function initMap(layers) {
     .shape('arc')
     .size(1.2)
     .color('count', ['#2ee6e6', '#7a7bff', '#ff7b50'])
-    .style({ opacity: 0.55 });
+    .style({ opacity: 0.55, pickingEnabled: false });
   scene.addLayer(arc);
   layers.find((l) => l.id === 'flows').layer = arc;
 
@@ -64,6 +87,7 @@ export async function initMap(layers) {
       intensity: 1.4,
       radius: 20,
       opacity: 1.0,
+      pickingEnabled: false, // 不参与拾取，避免热力晕挡住省面点击
       rampColors: {
         colors: ['rgba(46,230,230,0.0)', 'rgba(46,180,230,0.5)', 'rgba(122,123,255,0.8)', 'rgba(255,120,80,1.0)'],
         positions: [0, 0.4, 0.7, 1.0],
@@ -86,7 +110,7 @@ export async function initMap(layers) {
     const p = e.feature?.properties || {};
     new Popup({ anchors: 'bottom' })
       .setLnglat(e.lngLat)
-      .setHtml(`<div style="font-size:13px;line-height:1.7;color:#1a1a2e">
+      .setHTML(`<div style="font-size:13px;line-height:1.7;color:#1a1a2e">
         <b>${p.title}</b> — ${p.company}<br/>
         ${p.city} · ${p.salary_raw || '薪资面议'}<br/>
         ${(p.skills || []).join(' / ') || '无技能标签'}

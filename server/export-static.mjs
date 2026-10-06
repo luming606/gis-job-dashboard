@@ -18,6 +18,7 @@ const TARGETS = [
   ['city-rank', '/api/stats/city_rank'],
   ['timeline', '/api/stats/timeline'],
   ['region-heat-province', '/api/region-heat?level=province'],
+  ['province-stats', '/api/stats/province-stats'],
   ['flows', '/api/flows'],
 ];
 

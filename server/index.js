@@ -132,6 +132,35 @@ route('/api/region-heat', async (req, res) => {
   res.json({ level, counts: Object.fromEntries(rows.map((r) => [r.region, r.count])) });
 });
 
+// 各省份聚合明细（总量/平均日薪/城市分布/TOP技能），供前端省级下钻一次拉取
+route('/api/stats/province-stats', async (req, res) => {
+  const [totals, cities, skills] = await Promise.all([
+    query(
+      `SELECT c.province, count(*)::int total,
+              round(avg(j.salary_daily))::int avg_daily
+         FROM jobs j JOIN cities c ON c.id = j.city_id
+        GROUP BY 1`),
+    query(
+      `SELECT c.province, c.name AS city, count(*)::int cnt
+         FROM jobs j JOIN cities c ON c.id = j.city_id
+        GROUP BY 1, 2`),
+    query(
+      `SELECT province, skill, cnt FROM (
+         SELECT c.province, s AS skill, count(*)::int cnt,
+                row_number() OVER (PARTITION BY c.province ORDER BY count(*) DESC) rn
+           FROM jobs j JOIN cities c ON c.id = j.city_id, unnest(j.skills) s
+          GROUP BY 1, 2) t
+        WHERE rn <= 8`),
+  ]);
+  const out = {};
+  for (const r of totals.rows) {
+    out[r.province] = { total: r.total, avg_daily: r.avg_daily, cities: {}, skills: {} };
+  }
+  for (const r of cities.rows) out[r.province].cities[r.city] = r.cnt;
+  for (const r of skills.rows) out[r.province].skills[r.skill] = r.cnt;
+  res.json(out);
+});
+
 // 城市间岗位流向示意：非头部城市 → 省内最大集聚地（无则最近的全国头部城市）
 function haversine(a, b) {
   const R = 6371, rad = (d) => (d * Math.PI) / 180;

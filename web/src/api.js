@@ -14,6 +14,7 @@ const STATIC_FILES = {
   '/api/stats/city_rank': 'city-rank.json',
   '/api/stats/timeline': 'timeline.json',
   '/api/region-heat?level=province': 'region-heat-province.json',
+  '/api/stats/province-stats': 'province-stats.json',
   '/api/flows': 'flows.json',
 };
 
