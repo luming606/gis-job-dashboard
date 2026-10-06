@@ -72,6 +72,28 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 字形端点：MapLibre 规范要求 style.glyphs 必须存在才能使用文字图层。
+// 中文（CJK）由 MapLibre 的 localIdeographFontFamily 用浏览器本地字体现场生成 SDF，不会请求这里；
+// 这里返回"合法但为空"的 fontstack PBF，只为满足规范校验（非中文字符将不可见）。
+function emptyFontstackPbf(name, range) {
+  const enc = new TextEncoder();
+  const nameB = enc.encode(name);
+  const rangeB = enc.encode(range);
+  const buf = new Uint8Array(2 + nameB.length + 2 + rangeB.length);
+  let o = 0;
+  buf[o++] = 0x0a; buf[o++] = nameB.length; buf.set(nameB, o); o += nameB.length;
+  buf[o++] = 0x12; buf[o++] = rangeB.length; buf.set(rangeB, o);
+  return buf;
+}
+
+app.get('/fonts/:fontstack/:range', (req, res) => {
+  const range = req.params.range.replace(/\.pbf$/, '');
+  const name = decodeURIComponent(req.params.fontstack);
+  res.setHeader('Content-Type', 'application/x-protobuf');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.end(Buffer.from(emptyFontstackPbf(name, range)));
+});
+
 app.listen(PORT, () => {
   console.log(`瓦片服务已启动: ${PUBLIC_BASE}/tiles/{z}/{x}/{y}.pbf`);
   console.log(`  MBTiles: ${MBTILES}`);

@@ -15,6 +15,8 @@ function omtDarkStyle() {
   return {
     version: 8,
     name: 'gisjobs-dark',
+    // 规范要求：使用文字图层必须声明 glyphs。中文由本地字体渲染，此处仅满足校验。
+    glyphs: `${TILE_SERVER}/fonts/{fontstack}/{range}.pbf`,
     sources: {
       omt: {
         type: 'vector',
@@ -61,6 +63,52 @@ function omtDarkStyle() {
         id: 'boundary', type: 'line', source: 'omt', 'source-layer': 'boundary',
         paint: { 'line-color': '#46598f', 'line-width': 0.9, 'line-dasharray': [2, 2] },
       },
+      // ---- 地名标注（分层：放大到不同级别自动浮现；中文由 MapLibre 本地字体渲染） ----
+      {
+        id: 'label-province', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['in', ['get', 'class'], ['literal', ['state', 'province']]],
+        minzoom: 3,
+        layout: {
+          'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 3, 12, 8, 16],
+          'text-letter-spacing': 0.15,
+        },
+        paint: { 'text-color': '#a8bde8', 'text-halo-color': '#0b1026', 'text-halo-width': 1.3 },
+      },
+      {
+        id: 'label-city-major', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['all', ['==', ['get', 'class'], 'city'], ['<=', ['get', 'rank'], 8]],
+        minzoom: 5,
+        layout: {
+          'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 10, 17],
+        },
+        paint: { 'text-color': '#dbe6ff', 'text-halo-color': '#0b1026', 'text-halo-width': 1.5 },
+      },
+      {
+        id: 'label-city-town', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['in', ['get', 'class'], ['literal', ['city', 'town']]],
+        minzoom: 8,
+        layout: {
+          'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 8, 11, 12, 15],
+        },
+        paint: { 'text-color': '#b9c9ee', 'text-halo-color': '#0b1026', 'text-halo-width': 1.3 },
+      },
+      {
+        id: 'label-district', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['in', ['get', 'class'], ['literal', ['village', 'suburb', 'neighbourhood']]],
+        minzoom: 11,
+        layout: {
+          'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 11,
+        },
+        paint: { 'text-color': '#93a6d0', 'text-halo-color': '#0b1026', 'text-halo-width': 1.1 },
+      },
     ],
   };
 }
@@ -81,7 +129,13 @@ export async function initMap(layers) {
   // 自托管瓦片可用 → MapLibre 引擎 + OSM 矢量瓦片底图；不可用（静态部署）→ L7 内置引擎
   const useTiles = await tileServerAvailable();
   const mapEngine = useTiles
-    ? new MapLibre({ center: [112.5, 33.5], zoom: 4.2, style: omtDarkStyle() })
+    ? new MapLibre({
+      center: [112.5, 33.5],
+      zoom: 4.2,
+      style: omtDarkStyle(),
+      // 中文地名用浏览器本地字体现场生成 SDF，无需字形服务器（MapLibre 专为 CJK 设计的能力）
+      localIdeographFontFamily: "'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif",
+    })
     : new Map({ center: [112.5, 33.5], zoom: 4.2, style: { background: '#0b1026' } });
   const scene = new Scene({ id: 'map', map: mapEngine, logoVisible: false });
 
