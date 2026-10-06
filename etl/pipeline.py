@@ -8,12 +8,20 @@ import argparse
 import glob
 import json
 import os
+import re
 from collections import Counter
 
 from salary_parser import parse_salary
 from gcj02 import gcj02_to_wgs84
 
 BASE = os.path.dirname(os.path.abspath(__file__))
+
+# 发布脱敏：招聘描述里可能混入联系人手机号，入库前打码（公开仓库不传播个人信息）
+PHONE_RE = re.compile(r'(1[3-9]\d)\d{4}(\d{4})')
+
+
+def redact(text):
+    return PHONE_RE.sub(r'\1****\2', text) if text else text
 
 # 简称→全称，与 DataV GeoAtlas 的 name 字段对齐（区域面 join 键）
 PROVINCE_FULL = {
@@ -104,13 +112,13 @@ def main():
             'province': norm_province(raw.get('province')),
             'address': (raw.get('address') or '').strip(),
             'job_type': infer_job_type(raw, title),
-            'requirements': (raw.get('requirements') or '').strip(),
+            'requirements': redact((raw.get('requirements') or '').strip()),
             'skills': [s.strip() for s in (raw.get('skills') or []) if s and s.strip()],
             'salary_raw': (raw.get('salary') or '').strip(),
             'source_url': url,
             'source_site': (raw.get('source_site') or '').strip(),
             'collected_date': (raw.get('collected_date') or '').strip(),
-            'notes': (raw.get('notes') or '').strip(),
+            'notes': redact((raw.get('notes') or '').strip()),
             'lng': None, 'lat': None, 'geo_level': 'none',
             'wgs_lng': None, 'wgs_lat': None,
         })
