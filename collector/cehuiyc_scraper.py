@@ -171,6 +171,9 @@ if __name__ == '__main__':
         'batch2': (['无人机', '测量员', '内业', '不动产', '导航', 'GIS运维', '空间规划', '测绘内业',
                     '遥感应用', '卫星', '地理信息开发', '地图数据', '勘测', '地信'],
                    os.path.join('batch2', 'cehuiyc-extra.json')),
+        'batch3': (['测绘', '遥感', '工程测量', 'GIS', '三维建模', '无人机飞手', '地图制图',
+                    '空间数据', '勘察', '土地整治', '地籍', '遥感数据处理'],
+                   os.path.join('batch3', 'cehuiyc-round2.json')),
     }
     kws, out = CONFIG[which]
     collect(kws, out)
