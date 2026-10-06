@@ -93,6 +93,22 @@ export async function initMap(layers) {
       .addTo(scene);
   });
 
+  // ---- 时间线：按采集日期重放岗位"生长"过程 ----
+  const tl = await fetch('/api/stats/timeline').then((r) => r.json());
+  const dates = tl.map((t) => t.date);
+  const apply = (idx) => {
+    const cutoff = dates[idx];
+    const sub = {
+      ...geojson,
+      features: geojson.features.filter(
+        (f) => (f.properties.collected_date || dates[dates.length - 1]) <= cutoff),
+    };
+    heatmap.setData(sub);
+    points.setData(sub);
+    return sub.features.length;
+  };
+  apply(dates.length - 1); // 初始显示全量
+
   scene.on('loaded', () => console.log('L7 scene loaded'));
-  return scene;
+  return { scene, timeline: { dates, apply, total: geojson.features.length } };
 }

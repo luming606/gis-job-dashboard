@@ -28,6 +28,20 @@
             {{ opt.name }}
           </label>
         </div>
+        <div class="timeline panel" v-if="tl">
+          <button class="play" @click="playing ? pause() : play()">
+            {{ playing ? '⏸' : '▶' }}
+          </button>
+          <div class="tl-dates">
+            <span
+              v-for="(d, i) in tl.dates"
+              :key="d"
+              :class="{ active: i === curIdx }"
+              @click="seek(i)"
+            >{{ d }}</span>
+          </div>
+          <div class="tl-count">累计 {{ curCount }} 条</div>
+        </div>
       </section>
 
       <!-- 右列 -->
@@ -75,6 +89,37 @@ const cityRankEl = ref(null);
 const skillEl = ref(null);
 const salaryEl = ref(null);
 const coocEl = ref(null);
+
+// 时间线播放状态
+const tl = ref(null);
+const curIdx = ref(0);
+const curCount = ref(0);
+const playing = ref(false);
+let timer = null;
+let timelineApi = null;
+
+function step() {
+  curCount.value = timelineApi.apply(curIdx.value);
+  if (curIdx.value >= timelineApi.dates.length - 1) {
+    pause();
+  } else {
+    curIdx.value += 1;
+  }
+}
+function play() {
+  if (curIdx.value >= timelineApi.dates.length - 1) curIdx.value = 0;
+  playing.value = true;
+  timer = setInterval(step, 1500);
+  step();
+}
+function pause() {
+  playing.value = false;
+  clearInterval(timer);
+}
+function seek(i) {
+  curIdx.value = i;
+  curCount.value = timelineApi.apply(i);
+}
 
 function darkChart(title) {
   return {
@@ -182,7 +227,11 @@ function toggleLayer(opt) {
 onMounted(async () => {
   const res = await fetch('/api/stats/overview');
   overview.value = await res.json();
-  await initMap(layers);
+  const { timeline } = await initMap(layers);
+  timelineApi = timeline;
+  tl.value = timeline;
+  curIdx.value = timeline.dates.length - 1;
+  curCount.value = timeline.total;
   await loadCharts();
 });
 </script>
@@ -232,4 +281,22 @@ onMounted(async () => {
   display: flex; flex-direction: column; gap: 6px;
 }
 .layer-switch label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+.timeline {
+  position: absolute; left: 12px; bottom: 12px; z-index: 10;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 14px; font-size: 12px;
+}
+.timeline .play {
+  width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 50%;
+  background: rgba(46, 230, 230, 0.15); color: var(--cyan);
+  cursor: pointer; font-size: 12px; line-height: 1;
+}
+.timeline .tl-dates { display: flex; gap: 10px; }
+.timeline .tl-dates span { color: var(--dim); cursor: pointer; padding: 2px 4px; }
+.timeline .tl-dates span.active {
+  color: var(--cyan); font-weight: 700;
+  border-bottom: 2px solid var(--cyan);
+}
+.timeline .tl-count { color: #fff; font-weight: 600; }
 </style>
