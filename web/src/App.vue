@@ -68,6 +68,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import * as echarts from 'echarts';
+import { getJson } from './api';
 import { initMap } from './map';
 
 const overview = ref(null);
@@ -131,7 +132,7 @@ function darkChart(title) {
 }
 
 async function loadCharts() {
-  const rank = await (await fetch('/api/stats/city_rank')).json();
+  const rank = await getJson('/api/stats/city_rank');
   echarts.init(cityRankEl.value).setOption({
     ...darkChart(),
     xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#7f92c2' } },
@@ -149,7 +150,8 @@ async function loadCharts() {
     }],
   });
 
-  const skills = await (await fetch('/api/stats/skills?top=15')).json();
+  const skillsAll = await getJson('/api/stats/skills?top=30');
+  const skills = { freq: Object.fromEntries(Object.entries(skillsAll.freq).slice(0, 15)) };
   const skillPairs = Object.entries(skills.freq).reverse();
   echarts.init(skillEl.value).setOption({
     ...darkChart(),
@@ -168,7 +170,7 @@ async function loadCharts() {
     }],
   });
 
-  const salary = await (await fetch('/api/stats/salary?group_by=city')).json();
+  const salary = await getJson('/api/stats/salary?group_by=city');
   const rows = Object.entries(salary)
     .filter(([, b]) => b && b.count >= 3)
     .sort((a, b) => b[1].median - a[1].median).slice(0, 12);
@@ -192,7 +194,7 @@ async function loadCharts() {
   });
 
   // 技能共现网络：节点=TOP18 技能，边=同岗位共现
-  const coocData = await (await fetch('/api/stats/skills?top=18')).json();
+  const coocData = skillsAll;
   const nodeSet = new Set(Object.keys(coocData.freq));
   const nodes = Object.entries(coocData.freq).map(([name, count]) => ({
     name, symbolSize: 10 + Math.sqrt(count) * 4,
@@ -225,8 +227,7 @@ function toggleLayer(opt) {
 }
 
 onMounted(async () => {
-  const res = await fetch('/api/stats/overview');
-  overview.value = await res.json();
+  overview.value = await getJson('/api/stats/overview');
   const { timeline } = await initMap(layers);
   timelineApi = timeline;
   tl.value = timeline;

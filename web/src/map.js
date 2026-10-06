@@ -2,6 +2,7 @@
 // 坐标系：数据与省界 GeoJSON 均为 GCJ-02，自洽无需转换
 import { HeatmapLayer, LineLayer, PointLayer, PolygonLayer, Popup, Scene } from '@antv/l7';
 import { Map } from '@antv/l7-maps';
+import { getJson } from './api';
 
 const CHORO_COLORS = ['#12315e', '#1c4e8a', '#2e79c9', '#2fb3e8', '#2ee6e6', '#a7f3f3'];
 
@@ -17,8 +18,8 @@ export async function initMap(layers) {
 
   // ---- 分级统计图：省面着色（岗位越多越亮/越深色带） ----
   const [bounds, region] = await Promise.all([
-    fetch('/china-provinces.json').then((r) => r.json()),
-    fetch('/api/region-heat?level=province').then((r) => r.json()),
+    fetch(import.meta.env.BASE_URL + 'china-provinces.json').then((r) => r.json()),
+    getJson('/api/region-heat?level=province'),
   ]);
   const countByProvince = region.counts;
   const maxCount = Math.max(...Object.values(countByProvince), 1);
@@ -36,7 +37,7 @@ export async function initMap(layers) {
   layers.find((l) => l.id === 'choropleth').layer = choropleth;
 
   // ---- 流向连线：各城市 → 省内/就近集聚地（示意） ----
-  const flows = await fetch('/api/flows').then((r) => r.json());
+  const flows = await getJson('/api/flows');
   const arc = new LineLayer({ zIndex: 2, blend: 'additive' })
     .source(flows)
     .shape('arc')
@@ -52,7 +53,7 @@ export async function initMap(layers) {
   }
 
   // ---- 数据源：岗位点（GCJ-02） ----
-  const geojson = await fetch('/api/jobs').then((r) => r.json());
+  const geojson = await getJson('/api/jobs');
 
   // ---- 点位热力（样式键为此版本 L7 的 rampColors: { colors, positions }） ----
   const heatmap = new HeatmapLayer({ zIndex: 2 })
@@ -94,7 +95,7 @@ export async function initMap(layers) {
   });
 
   // ---- 时间线：按采集日期重放岗位"生长"过程 ----
-  const tl = await fetch('/api/stats/timeline').then((r) => r.json());
+  const tl = await getJson('/api/stats/timeline');
   const dates = tl.map((t) => t.date);
   const apply = (idx) => {
     const cutoff = dates[idx];
