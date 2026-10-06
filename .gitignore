@@ -6,5 +6,8 @@ data/
 node_modules/
 web/dist/
 *.mbtiles
+*.pbf
+tiles/
+tiles/tmp/
 *.log
 .DS_Store

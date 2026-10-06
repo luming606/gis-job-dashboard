@@ -1,20 +1,93 @@
-﻿// L7 地图初始化：L7 内置引擎（无第三方 JS API 依赖）+ 四层可切换图层
-// 坐标系：数据与省界 GeoJSON 均为 GCJ-02，自洽无需转换
+// L7 地图初始化：自托管 OSM 矢量瓦片底图（MapLibre 引擎）优先，不可用时退回 L7 内置引擎。
+// 坐标系：底图 OSM 是 WGS-84，看板数据是 GCJ-02 —— 用瓦片底图时数据统一逆转换到 WGS-84。
 import { HeatmapLayer, LineLayer, PointLayer, PolygonLayer, Popup, Scene } from '@antv/l7';
-import { Map } from '@antv/l7-maps';
+import { Map, MapLibre } from '@antv/l7-maps';
 import { getJson } from './api';
+import { gcj02GeoJsonToWgs84, gcj02ToWgs84 } from './gcj02';
 
 const CHORO_COLORS = ['#12315e', '#1c4e8a', '#2e79c9', '#2fb3e8', '#2ee6e6', '#a7f3f3'];
 
+// 自托管矢量瓦片服务（planetiler 切片的 MBTiles 由 server/tile-server.mjs 发布）
+const TILE_SERVER = import.meta.env.VITE_TILE_SERVER ?? 'http://localhost:3112';
+
+// 深色 OpenMapTiles 主题：与看板深海蓝背景统一；不含文字图层，因此不依赖字形服务
+function omtDarkStyle() {
+  return {
+    version: 8,
+    name: 'gisjobs-dark',
+    sources: {
+      omt: {
+        type: 'vector',
+        tiles: [`${TILE_SERVER}/tiles/{z}/{x}/{y}.pbf`],
+        minzoom: 0,
+        maxzoom: 14,
+        attribution: '© OpenStreetMap contributors',
+      },
+    },
+    layers: [
+      { id: 'bg', type: 'background', paint: { 'background-color': '#0b1026' } },
+      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#12203f' } },
+      {
+        id: 'landcover', type: 'fill', source: 'omt', 'source-layer': 'landcover',
+        paint: { 'fill-color': '#132a24', 'fill-opacity': 0.6 },
+      },
+      {
+        id: 'landuse', type: 'fill', source: 'omt', 'source-layer': 'landuse',
+        paint: { 'fill-color': '#1a2344', 'fill-opacity': 0.5 },
+      },
+      {
+        id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park',
+        paint: { 'fill-color': '#15302a', 'fill-opacity': 0.7 },
+      },
+      {
+        id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
+        paint: { 'line-color': '#1c4e8a', 'line-width': 1 },
+      },
+      {
+        id: 'building', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 13,
+        paint: { 'fill-color': '#1c2647', 'fill-opacity': 0.7 },
+      },
+      {
+        id: 'transportation', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        paint: {
+          'line-color': ['match', ['get', 'class'],
+            ['motorway', 'trunk'], '#3d5aa0',
+            ['primary', 'secondary'], '#2f4270',
+            '#243356'],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 1, 12, 2.2],
+        },
+      },
+      {
+        id: 'boundary', type: 'line', source: 'omt', 'source-layer': 'boundary',
+        paint: { 'line-color': '#3c4e80', 'line-width': 0.7, 'line-dasharray': [2, 2] },
+      },
+    ],
+  };
+}
+
+async function tileServerAvailable() {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 1500);
+    const res = await fetch(`${TILE_SERVER}/health`, { signal: ctrl.signal });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function initMap(layers) {
-  const scene = new Scene({
-    id: 'map',
-    map: new Map({
-      center: [112.5, 33.5],
-      zoom: 4.2,
-      style: { background: '#0b1026' },
-    }),
-  });
+  // 自托管瓦片可用 → MapLibre 引擎 + OSM 矢量瓦片底图；不可用（静态部署）→ L7 内置引擎
+  const useTiles = await tileServerAvailable();
+  const mapEngine = useTiles
+    ? new MapLibre({ center: [112.5, 33.5], zoom: 4.2, style: omtDarkStyle() })
+    : new Map({ center: [112.5, 33.5], zoom: 4.2, style: { background: '#0b1026' } });
+  const scene = new Scene({ id: 'map', map: mapEngine });
+
+  // 底图坐标系为 WGS-84 时，所有 GCJ-02 数据统一逆转换后再上图
+  const toDisplayCoords = (geojson) => (useTiles ? gcj02GeoJsonToWgs84(geojson) : geojson);
+  const toDisplayPoint = ([lng, lat]) => (useTiles ? gcj02ToWgs84(lng, lat) : [lng, lat]);
 
   // ---- 分级统计图：省面着色（岗位越多越亮/越深色带） ----
   const [bounds, region] = await Promise.all([
@@ -25,7 +98,7 @@ export async function initMap(layers) {
   const maxCount = Math.max(...Object.values(countByProvince), 1);
 
   const choropleth = new PolygonLayer({ zIndex: 1 })
-    .source(bounds)
+    .source(toDisplayCoords(bounds)) // 用 OSM 底图时省界同步转 WGS-84
     .shape('fill')
     .color('name', (name) => {
       const c = countByProvince[name] || 0;
@@ -60,7 +133,7 @@ export async function initMap(layers) {
   });
 
   // ---- 流向连线：各城市 → 省内/就近集聚地（示意） ----
-  const flows = await getJson('/api/flows');
+  const flows = toDisplayCoords(await getJson('/api/flows'));
   const arc = new LineLayer({ zIndex: 2, blend: 'additive' })
     .source(flows)
     .shape('arc')
@@ -75,8 +148,8 @@ export async function initMap(layers) {
     if (opt.layer && !opt.on) opt.layer.hide();
   }
 
-  // ---- 数据源：岗位点（GCJ-02） ----
-  const geojson = await getJson('/api/jobs');
+  // ---- 数据源：岗位点（GCJ-02，切底图时逆转换为 WGS-84） ----
+  const geojson = toDisplayCoords(await getJson('/api/jobs'));
 
   // ---- 点位热力（样式键为此版本 L7 的 rampColors: { colors, positions }） ----
   const heatmap = new HeatmapLayer({ zIndex: 2 })
