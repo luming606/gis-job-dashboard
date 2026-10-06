@@ -8,7 +8,7 @@ PostGIS 空间数据库 → Express API → AntV L7（WebGL）时空可视化 �
 
 ## 在线演示
 
-- 静态版（GitHub Pages）：本仓库 README 发布后启用，数据随采集批次更新
+- **静态版**：[https://luming606.github.io/gis-job-dashboard/](https://luming606.github.io/gis-job-dashboard/)（数据随采集批次更新）
 - 本地全栈版：见下方「快速开始」
 
 ## 功能
