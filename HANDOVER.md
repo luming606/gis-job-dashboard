@@ -14,7 +14,9 @@
 | W2.5 上线 | 静态化导出 + 前端双模式（全栈/纯静态）+ GitHub Pages 发布 | ✅ |
 | W3 数据+打磨 | 二轮采集（286 条/29 省）；真箱线图、省份下钻、图例、打包分包 | ✅ |
 | v3 底图 | 全国 OSM → planetiler 切片（442 万瓦片）→ 自研瓦片服务（node:sqlite）→ MapLibre 引擎底图 + GCJ-02→WGS-84 对齐 + 分级中文地名标注 | ✅ |
-| **v4 样式+静态底图** | **OSM 样式重做：道路两级分级（高速琥珀/干道暖黄/省道亮蓝/县乡暗蓝）+ 土地类型分色（林/草/沙/冰/居住/工业/商业）+ 标注高对比提亮 + 中国域遮罩（域外压暗，L7 PolygonLayer 实现绕坑）+ 静态瓦片烘焙（server/export-static-tiles.mjs，149 块 z≤6 → GitHub Pages 也有真底图）** | ✅ 本次会话完成 |
+| **v5 设计语言** | **Linear DESIGN.md（VoltAgent awesome-design-md）重构：近黑画布/四级表面阶梯/发丝线/单一薰衣草强调色/Inter 字体栈；地图改石墨中性底图+薰衣草数据色；ECharts 单色化** | ✅ |
+| **v6 交互升级** | **城市榜改棒棒糖图（末端数值标签）；技能榜改极坐标圆形图；共现网络改自研 canvas 3D 技能球（拖拽惯性旋转/悬停看共现，替换坏掉的 echarts-gl graphGL）；箱线图工具提示** | ✅ |
+| **v7/v8 静态底图修复** | **烘焙瓦片解压（gzip→裸 MVT）+ 绝对 URL——GitHub Pages 首次拥有真底图**；极坐标轴纠正（技能绕圆周） | ✅ 本次会话完成 |
 
 **关键成果数字**：442 万矢量瓦片 / 1.2 亿要素 / 4.3GB MBTiles / 切片刻时 7 分 47 秒 /
 286 条岗位 / 29 省 / 仓库 14 个提交 / 线上地址 https://luming606.github.io/gis-job-dashboard/
@@ -104,9 +106,15 @@ Scene 构造也传了 `logoVisible: false`。
 6c. **中国域遮罩**：用 L7 PolygonLayer 实现（zIndex 0.5，渲染在 MapLibre 画布之上、分级图之下），**不要**往
    MapLibre style 里加第二个 geojson source——实测加了会让整个 omt 矢量瓦片源不渲染（原因未查明，绕坑即可）。
    遮罩洞必须强制顺时针（RFC 7946；DataV 省界环方向不统一，不修正会把全图盖死），代码在 map.js 的 buildChinaMaskSource
-6d. **静态底图烘焙**：`server/export-static-tiles.mjs` 从 MBTiles 抽 z≤6 中国区域瓦片（149 块/4.1MB）到
-   `web/public/static-tiles/`，前端 tile 服务不可用时自动用（更高缩放靠 MapLibre overzoom）。
-   ⚠️ MBTiles 的 tile_row 是 TMS 行号，算纬度必须先转 XYZ 行号（曾因此把 149 块滤成 1 块）
+6d. **静态底图烘焙三坑**（`server/export-static-tiles.mjs`）：① planetiler 在 MBTiles 存的是 **gzip 压缩 MVT**，
+   静态托管无法发 `Content-Encoding: gzip` 头，烘焙时必须 gunzip 成裸 pbf，否则 MapLibre 解析报 `Error`；
+   ② 瓦片 URL 必须是**绝对路径**（`new URL(t, location.href)`），相对路径触发 `Request` 构造 TypeError；
+   ③ MBTiles 的 tile_row 是 TMS 行号，算纬度必须先转 XYZ 行号
+6e. **图表库三坑**：① echarts-gl 的 graphGL 力导向把主线程卡死（本机实测），3D 网络图改用自研 canvas（web/src/skillSphere.js）；
+   ② echarts-wordcloud 注册在 'echarts/lib/echarts' 子路径，Vite 分包产生双实例静默失效（别名修复又会破坏 echarts 内部循环依赖），已弃用；
+   ③ ECharts 极坐标：**angleAxis 放类目**（技能绕圆周）才可读，radiusAxis 放类目会变成同心环且标签重叠
+6f. **无头截图竞态**：initMap 全链路在本机要 25-40 秒（瓦片+转换+图表），截图等待 <30 秒会拍到空白图表；
+   用 `web/screenshot-debug.mjs <url> <out> <waitMs>`（带 stage 与错误输出）。Vite dev 偶发 EBUSY 崩溃，重启即可
 7. **git 误提交大文件**：曾把 1.5GB pbf 加进索引（.gitignore 漏了 tiles/），修复 = `git rm -r --cached tiles/`
    + amend + `git reflog expire --expire=now --all` + `git gc --prune=now`（仓库 1.49GB → 738KB）。
    **tiles/、*.pbf、*.mbtiles 现已在 .gitignore**
