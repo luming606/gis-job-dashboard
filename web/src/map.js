@@ -27,41 +27,70 @@ function omtDarkStyle() {
       },
     },
     layers: [
-      { id: 'bg', type: 'background', paint: { 'background-color': '#0b1026' } },
-      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#12203f' } },
+      { id: 'bg', type: 'background', paint: { 'background-color': '#13233f' } },
+      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#1d4f80' } },
+      // ---- 土地类型分色：林/草/沙/冰、居住/工业/商业 各自可辨识 ----
       {
         id: 'landcover', type: 'fill', source: 'omt', 'source-layer': 'landcover',
-        paint: { 'fill-color': '#132a24', 'fill-opacity': 0.6 },
+        paint: {
+          'fill-color': ['match', ['get', 'class'],
+            'wood', '#1d4534',
+            'grass', '#215239',
+            'sand', '#4a4433',
+            'ice', '#2c4a66',
+            '#1d4534'],
+          'fill-opacity': 0.85,
+        },
       },
       {
         id: 'landuse', type: 'fill', source: 'omt', 'source-layer': 'landuse',
-        paint: { 'fill-color': '#1a2344', 'fill-opacity': 0.5 },
+        paint: {
+          'fill-color': ['match', ['get', 'class'],
+            'residential', '#22355e',
+            ['industrial', 'railway', 'airport'], '#2c3a68',
+            ['commercial', 'retail', 'school', 'hospital'], '#33417a',
+            '#22355e'],
+          'fill-opacity': 0.75,
+        },
       },
       {
         id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park',
-        paint: { 'fill-color': '#15302a', 'fill-opacity': 0.7 },
+        paint: { 'fill-color': '#1f5c41', 'fill-opacity': 0.8 },
       },
       {
         id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
-        paint: { 'line-color': '#1c4e8a', 'line-width': 1 },
+        paint: { 'line-color': '#2a6cb0', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 12, 2.2] },
       },
       {
         id: 'building', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 13,
-        paint: { 'fill-color': '#1c2647', 'fill-opacity': 0.7 },
+        paint: { 'fill-color': '#26375f', 'fill-opacity': 0.85 },
       },
+      // ---- 道路分级（两层实现，每层只允许一个 zoom 插值表达式）：高速/干道/省道 亮而粗，县乡道 暗而细 ----
       {
-        id: 'transportation', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        id: 'road-minor', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['in', ['get', 'class'], ['literal', ['secondary', 'tertiary', 'minor', 'service', 'track', 'path']]],
         paint: {
           'line-color': ['match', ['get', 'class'],
-            ['motorway', 'trunk'], '#4a6ab8',
-            ['primary', 'secondary'], '#3a5288',
-            '#2b3d66'],
-          'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.6, 8, 1.4, 12, 2.6],
+            'secondary', '#5f83c9',
+            'tertiary', '#4a68a3',
+            '#3c5787'],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 10, 1, 14, 2],
+        },
+      },
+      {
+        id: 'road-major', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary']]],
+        paint: {
+          'line-color': ['match', ['get', 'class'],
+            'motorway', '#f6b756',
+            'trunk', '#e8d38a',
+            '#8fb7ff'],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.8, 7, 1.6, 10, 2.6, 14, 4.4],
         },
       },
       {
         id: 'boundary', type: 'line', source: 'omt', 'source-layer': 'boundary',
-        paint: { 'line-color': '#46598f', 'line-width': 0.9, 'line-dasharray': [2, 2] },
+        paint: { 'line-color': '#5570a8', 'line-width': 0.9, 'line-dasharray': [2, 2] },
       },
       // ---- 地名标注（分层：放大到不同级别自动浮现；中文由 MapLibre 本地字体渲染） ----
       {
@@ -74,7 +103,7 @@ function omtDarkStyle() {
           'text-size': ['interpolate', ['linear'], ['zoom'], 3, 12, 8, 16],
           'text-letter-spacing': 0.15,
         },
-        paint: { 'text-color': '#a8bde8', 'text-halo-color': '#0b1026', 'text-halo-width': 1.3 },
+        paint: { 'text-color': '#eaf1ff', 'text-halo-color': '#0d1830', 'text-halo-width': 1.8 },
       },
       {
         id: 'label-city-major', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -83,9 +112,9 @@ function omtDarkStyle() {
         layout: {
           'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
           'text-font': ['Noto Sans Regular'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 10, 17],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 18],
         },
-        paint: { 'text-color': '#dbe6ff', 'text-halo-color': '#0b1026', 'text-halo-width': 1.5 },
+        paint: { 'text-color': '#ffffff', 'text-halo-color': '#0d1830', 'text-halo-width': 2 },
       },
       {
         id: 'label-city-town', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -94,9 +123,9 @@ function omtDarkStyle() {
         layout: {
           'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
           'text-font': ['Noto Sans Regular'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 8, 11, 12, 15],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 8, 12, 12, 16],
         },
-        paint: { 'text-color': '#b9c9ee', 'text-halo-color': '#0b1026', 'text-halo-width': 1.3 },
+        paint: { 'text-color': '#dbe6ff', 'text-halo-color': '#0d1830', 'text-halo-width': 1.6 },
       },
       {
         id: 'label-district', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -105,11 +134,41 @@ function omtDarkStyle() {
         layout: {
           'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
           'text-font': ['Noto Sans Regular'],
-          'text-size': 11,
+          'text-size': 12,
         },
-        paint: { 'text-color': '#93a6d0', 'text-halo-color': '#0b1026', 'text-halo-width': 1.1 },
+        paint: { 'text-color': '#b7c7ec', 'text-halo-color': '#0d1830', 'text-halo-width': 1.4 },
       },
     ],
+  };
+}
+
+// 中国域遮罩（世界矩形挖去全部省界环）：域外压暗、中国域透出底图。
+// 洞强制顺时针（RFC 7946），DataV 省界环方向不统一，不修正会被当成外环把全图盖死。
+function ringSignedArea(ring) {
+  let a = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+  }
+  return a / 2;
+}
+
+function buildChinaMaskSource(boundsWgs) {
+  const WORLD = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
+  const holes = [];
+  for (const f of boundsWgs.features) {
+    const g = f.geometry;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    for (const poly of polys) {
+      for (const ring of poly) {
+        const r = ring.map((c) => c.slice());
+        if (ringSignedArea(r) > 0) r.reverse();
+        holes.push(r);
+      }
+    }
+  }
+  return {
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [WORLD, ...holes] } }],
   };
 }
 
@@ -151,6 +210,16 @@ export async function initMap(layers) {
   const countByProvince = region.counts;
   const maxCount = Math.max(...Object.values(countByProvince), 1);
 
+  // ---- 中国域遮罩：L7 层渲染在 MapLibre 画布之上、分级图之下（zIndex 0.5） ----
+  if (useTiles) {
+    const maskLayer = new PolygonLayer({ zIndex: 0.5 })
+      .source(buildChinaMaskSource(gcj02GeoJsonToWgs84(bounds)))
+      .shape('fill')
+      .color('#0a1122')
+      .style({ opacity: 1, pickingEnabled: false });
+    scene.addLayer(maskLayer);
+  }
+
   const choropleth = new PolygonLayer({ zIndex: 1 })
     .source(toDisplayCoords(bounds)) // 用 OSM 底图时省界同步转 WGS-84
     .shape('fill')
@@ -158,7 +227,7 @@ export async function initMap(layers) {
       const c = countByProvince[name] || 0;
       return CHORO_COLORS[Math.min(Math.floor((c / maxCount) * CHORO_COLORS.length), CHORO_COLORS.length - 1)];
     })
-    .style({ opacity: 0.72 })
+    .style({ opacity: 0.5 })
     .active({ color: 'rgba(255,255,255,0.25)' });
   scene.addLayer(choropleth);
   layers.find((l) => l.id === 'choropleth').layer = choropleth;
