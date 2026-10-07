@@ -6,11 +6,11 @@ PostGIS 空间数据库 → Express API → 自托管 OSM 矢量瓦片底图 →
 
 ## 全国视角（带省级地名标注）
 
-![dashboard](docs/dashboard-national.png)
+![dashboard](docs/screenshot-national.png)
 
 ## 放大到城市级（地名逐级浮现 + 道路网）
 
-![dashboard-city](docs/dashboard-city-zoom.png)
+![dashboard-city](docs/screenshot-city-zoom.png)
 
 ## 在线演示
 
