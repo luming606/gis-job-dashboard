@@ -6,24 +6,25 @@ import { getJson } from './api';
 import { gcj02GeoJsonToWgs84, gcj02ToWgs84 } from './gcj02';
 
 // 分级色带：Linear 薰衣草阶梯（岗位少=深灰蓝 → 岗位多=亮薰衣草），与石墨底图同语言
-const CHORO_COLORS = ['#1d1f2b', '#2c2f4a', '#3d4173', '#565cc0', '#7b81e8', '#aab0f5'];
+const CHORO_COLORS = ['#2a2d44', '#333760', '#41467f', '#565cc0', '#7b81e8', '#aab0f5'];
 
 // 自托管矢量瓦片服务（planetiler 切片的 MBTiles 由 server/tile-server.mjs 发布）
 const TILE_SERVER = import.meta.env.VITE_TILE_SERVER ?? 'http://localhost:3112';
 
-// 深色 OpenMapTiles 主题：与看板深海蓝背景统一；不含文字图层，因此不依赖字形服务
-function omtDarkStyle() {
+// 深色 OpenMapTiles 主题（石墨中性 + Linear 语汇）。
+// tiles/glyphs/maxzoom 参数化：全栈模式走瓦片服务，静态部署走烘焙瓦片（server/export-static-tiles.mjs）
+function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
   return {
     version: 8,
     name: 'gisjobs-dark',
     // 规范要求：使用文字图层必须声明 glyphs。中文由本地字体渲染，此处仅满足校验。
-    glyphs: `${TILE_SERVER}/fonts/{fontstack}/{range}.pbf`,
+    glyphs,
     sources: {
       omt: {
         type: 'vector',
-        tiles: [`${TILE_SERVER}/tiles/{z}/{x}/{y}.pbf`],
+        tiles,
         minzoom: 0,
-        maxzoom: 14,
+        maxzoom,
         attribution: '© OpenStreetMap contributors',
       },
     },
@@ -185,14 +186,38 @@ async function tileServerAvailable() {
   }
 }
 
+// 静态部署兜底：构建期把 MBTiles 里 z≤6 的中国区域瓦片烘焙成静态 pbf（server/export-static-tiles.mjs），
+// GitHub Pages 上也能有真底图；更高缩放由 MapLibre overzoom 放大渲染
+async function staticTileUrls() {
+  try {
+    const res = await fetch(import.meta.env.BASE_URL + 'static-tiles/tiles.json');
+    if (!res.ok) return null;
+    const j = await res.json();
+    // MapLibre 用 Request 构造瓦片请求，必须是绝对 URL（相对路径会 TypeError）
+    return j.tiles?.length
+      ? j.tiles.map((t) => new URL(t, window.location.href).href)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function initMap(layers) {
-  // 自托管瓦片可用 → MapLibre 引擎 + OSM 矢量瓦片底图；不可用（静态部署）→ L7 内置引擎
-  const useTiles = await tileServerAvailable();
+  // 底图三级降级：瓦片服务（全栈）→ 烘焙静态瓦片（GitHub Pages）→ L7 内置引擎（无底图）
+  const live = await tileServerAvailable();
+  const staticUrls = live ? null : await staticTileUrls();
+  const useTiles = live || !!staticUrls;
   const mapEngine = useTiles
     ? new MapLibre({
       center: [112.5, 33.5],
       zoom: 4.2,
-      style: omtDarkStyle(),
+      style: omtDarkStyle({
+        tiles: live ? [`${TILE_SERVER}/tiles/{z}/{x}/{y}.pbf`] : staticUrls,
+        glyphs: live
+          ? `${TILE_SERVER}/fonts/{fontstack}/{range}.pbf`
+          : './static-tiles/fonts/{fontstack}/{range}.pbf', // 静态部署无字形服务；中文走本地字体渲染
+        maxzoom: live ? 14 : 6,
+      }),
       // 中文地名用浏览器本地字体现场生成 SDF，无需字形服务器（MapLibre 专为 CJK 设计的能力）
       localIdeographFontFamily: "'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif",
     })
@@ -204,8 +229,7 @@ export async function initMap(layers) {
   const toDisplayPoint = ([lng, lat]) => (useTiles ? gcj02ToWgs84(lng, lat) : [lng, lat]);
 
   // ---- 分级统计图：省面着色（岗位越多越亮/越深色带） ----
-  const [bounds, region] = await Promise.all([
-    fetch(import.meta.env.BASE_URL + 'china-provinces.json').then((r) => r.json()),
+  const [bounds, region] = await Promise.all([    fetch(import.meta.env.BASE_URL + 'china-provinces.json').then((r) => r.json()),
     getJson('/api/region-heat?level=province'),
   ]);
   const countByProvince = region.counts;

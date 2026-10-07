@@ -62,7 +62,7 @@
           <div ref="salaryEl" class="chart wide"></div>
         </div>
         <div class="half">
-          <h3>技能共现网络（同一岗位出现的技能组合）</h3>
+          <h3>技能共现球 · 拖拽旋转 / 悬停看共现</h3>
           <div ref="coocEl" class="chart wide"></div>
         </div>
       </section>
@@ -71,9 +71,10 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import * as echarts from 'echarts';
 import { getJson } from './api';
+import { mountSkillSphere } from './skillSphere';
 import { initMap } from './map';
 
 const overview = ref(null);
@@ -133,48 +134,78 @@ function seek(i) {
 function darkChart(title) {
   return {
     backgroundColor: 'transparent',
-    grid: { left: 8, right: 20, top: 8, bottom: 8, containLabel: true },
+    grid: { left: 8, right: 24, top: 8, bottom: 8, containLabel: true },
     textStyle: { color: '#8a8f98' },
     title: { show: false },
+    // Linear 风格 tooltip：深面板 + 发丝边框，全站图表共享
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: '#141516',
+      borderColor: '#34343a',
+      textStyle: { color: '#f7f8f8', fontSize: 12 },
+    },
   };
 }
 
 async function loadCharts() {
   const rank = await getJson('/api/stats/city_rank');
+  // 棒棒糖图：细杆 = 数值轴，圆点 = 数值，末端直接标注具体数字
   echarts.init(cityRankEl.value).setOption({
     ...darkChart(),
-    xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#62666d' } },
+    xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { show: false }, axisLine: { show: false } },
     yAxis: {
       type: 'category',
       data: rank.slice(0, 10).map((r) => r.city).reverse(),
       axisLabel: { color: '#d0d6e0' },
       axisLine: { show: false }, axisTick: { show: false },
     },
-    series: [{
-      type: 'bar',
-      data: rank.slice(0, 10).map((r) => r.count).reverse(),
-      barWidth: 10,
-      itemStyle: { color: '#5e6ad2', borderRadius: 3 },
-    }],
+    series: [
+      {
+        type: 'bar',
+        data: rank.slice(0, 10).map((r) => r.count).reverse(),
+        barWidth: 2,
+        itemStyle: { color: '#34343a' },
+        tooltip: { show: false },
+      },
+      {
+        type: 'scatter',
+        symbolSize: 9,
+        data: rank.slice(0, 10).map((r) => r.count).reverse(),
+        itemStyle: { color: '#5e6ad2' },
+        label: {
+          show: true, position: 'right', color: '#d0d6e0', fontSize: 11,
+          formatter: '{c} 条',
+        },
+      },
+    ],
   });
 
   const skillsAll = await getJson('/api/stats/skills?top=30');
-  const skills = { freq: Object.fromEntries(Object.entries(skillsAll.freq).slice(0, 15)) };
-  const skillPairs = Object.entries(skills.freq).reverse();
+  const skills = { freq: Object.fromEntries(Object.entries(skillsAll.freq).slice(0, 10)) };
+  // 极坐标条形图（径向扇形）：与棒棒糖/箱线图形态区分；数值越大扇形越长且越接近强调色
+  const pairs = Object.entries(skills.freq);
+  const maxS = Math.max(...pairs.map(([, c]) => c), 1);
   echarts.init(skillEl.value).setOption({
     ...darkChart(),
-    xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#62666d' } },
-    yAxis: {
+    polar: { radius: ['10%', '72%'], center: ['50%', '50%'] },
+    angleAxis: { show: false, max: maxS * 1.15, startAngle: 90 },
+    radiusAxis: {
       type: 'category',
-      data: skillPairs.map(([s]) => s),
-      axisLabel: { color: '#d0d6e0' },
+      data: pairs.map(([s]) => s),
+      axisLabel: { color: '#d0d6e0', fontSize: 9 },
       axisLine: { show: false }, axisTick: { show: false },
+      z: 10,
     },
     series: [{
       type: 'bar',
-      data: skillPairs.map(([, c]) => c),
-      barWidth: 10,
-      itemStyle: { color: '#8a8f98', borderRadius: 3 },
+      coordinateSystem: 'polar',
+      data: pairs.map(([name, c]) => ({
+        value: c,
+        itemStyle: { color: c / maxS > 0.5 ? '#5e6ad2' : '#3a3f4b', borderRadius: 4 },
+      })),
+      roundCap: true,
+      barWidth: '55%',
+      tooltip: { formatter: (p) => `<b>${p.name}</b>：出现在 ${p.value} 条岗位要求中` },
     }],
   });
 
@@ -208,33 +239,11 @@ async function loadCharts() {
     }],
   });
 
-  // 技能共现网络：节点=TOP18 技能，边=同岗位共现
+  // 技能共现球（自研 canvas）：拖拽旋转 / 悬停显示出现次数与常共现技能
   const coocData = skillsAll;
   const nodeSet = new Set(Object.keys(coocData.freq));
-  const nodes = Object.entries(coocData.freq).map(([name, count]) => ({
-    name, symbolSize: 10 + Math.sqrt(count) * 4,
-    itemStyle: { color: '#575c66' },
-    label: { show: true, color: '#d0d6e0', fontSize: 10 },
-  }));
-  const links = Object.entries(coocData.cooc)
-    .map(([pair, count]) => {
-      const [s, t] = pair.split('|');
-      return { source: s, target: t, count };
-    })
-    .filter((l) => nodeSet.has(l.source) && nodeSet.has(l.target) && l.count >= 2)
-    .map((l) => ({
-      ...l,
-      lineStyle: { width: 1 + Math.log2(l.count), color: 'rgba(94,106,210,0.4)', curveness: 0.15 },
-    }));
-  echarts.init(coocEl.value).setOption({
-    ...darkChart(),
-    series: [{
-      type: 'graph', layout: 'force', roam: false,
-      data: nodes, links,
-      force: { repulsion: 220, edgeLength: 60, gravity: 0.15 },
-      emphasis: { focus: 'adjacency' },
-    }],
-  });
+  const unmountSphere = mountSkillSphere(coocEl.value, coocData.freq, coocData.cooc);
+  onBeforeUnmount(() => unmountSphere());
 }
 
 function toggleLayer(opt) {

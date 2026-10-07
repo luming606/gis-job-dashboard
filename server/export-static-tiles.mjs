@@ -1,8 +1,11 @@
 // 把 MBTiles 里 z≤6 的中国区域矢量瓦片烘焙成静态 pbf 文件 + tiles.json 清单，
 // 供 GitHub Pages 纯静态部署使用（无需瓦片服务）。
+// 注意：planetiler 在 MBTiles 里存的是 gzip 压缩的 MVT；静态托管无法发 Content-Encoding: gzip 头，
+// 必须在此解压成裸 pbf，否则 MapLibre 解析会报 Error。
 // 用法：node export-static-tiles.mjs   （产物：web/public/static-tiles/）
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -37,8 +40,10 @@ for (const r of rows) {
   const dir = path.join(OUT, String(r.z), String(r.x));
   mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${yXyz}.pbf`);
-  writeFileSync(file, Buffer.from(r.d));
-  bytes += r.d.length;
+  let buf = Buffer.from(r.d);
+  if (buf[0] === 0x1f && buf[1] === 0x8b) buf = gunzipSync(buf); // gzip → 裸 MVT
+  writeFileSync(file, buf);
+  bytes += buf.length;
   tiles.push(`./static-tiles/${r.z}/${r.x}/${yXyz}.pbf`);
 }
 
