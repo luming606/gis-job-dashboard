@@ -182,29 +182,30 @@ async function loadCharts() {
 
   const skillsAll = await getJson('/api/stats/skills?top=30');
   const skills = { freq: Object.fromEntries(Object.entries(skillsAll.freq).slice(0, 10)) };
-  // 极坐标条形图（径向扇形）：与棒棒糖/箱线图形态区分；数值越大扇形越长且越接近强调色
+  // 极坐标条形图（圆形放射）：技能围一圈、条形向外延伸，与棒棒糖/箱线图形态区分
   const pairs = Object.entries(skills.freq);
   const maxS = Math.max(...pairs.map(([, c]) => c), 1);
   echarts.init(skillEl.value).setOption({
     ...darkChart(),
-    polar: { radius: ['10%', '72%'], center: ['50%', '50%'] },
-    angleAxis: { show: false, max: maxS * 1.15, startAngle: 90 },
-    radiusAxis: {
+    polar: { radius: ['18%', '68%'], center: ['50%', '52%'] },
+    angleAxis: {
       type: 'category',
       data: pairs.map(([s]) => s),
-      axisLabel: { color: '#d0d6e0', fontSize: 9 },
-      axisLine: { show: false }, axisTick: { show: false },
-      z: 10,
+      startAngle: 90,
+      axisLabel: { color: '#d0d6e0', fontSize: 10, margin: 8 },
+      axisLine: { lineStyle: { color: '#23252a' } },
+      axisTick: { show: false },
     },
+    radiusAxis: { max: maxS * 1.12, axisLabel: { show: false }, axisLine: { show: false }, splitLine: { show: false } },
     series: [{
       type: 'bar',
       coordinateSystem: 'polar',
       data: pairs.map(([name, c]) => ({
         value: c,
-        itemStyle: { color: c / maxS > 0.5 ? '#5e6ad2' : '#3a3f4b', borderRadius: 4 },
+        itemStyle: { color: c / maxS > 0.5 ? '#5e6ad2' : '#3a3f4b', borderRadius: 3 },
       })),
       roundCap: true,
-      barWidth: '55%',
+      barWidth: '48%',
       tooltip: { formatter: (p) => `<b>${p.name}</b>：出现在 ${p.value} 条岗位要求中` },
     }],
   });
