@@ -1,10 +1,20 @@
+/* Linear 设计系统适配（DESIGN.md: getdesign.md/linear.app）
+   画布近黑、四级表面阶梯、发丝线边框、单一薰衣草强调色、无发光无渐变 */
 :root {
-  --bg: #0b1026;
-  --panel: rgba(20, 28, 58, 0.72);
-  --border: rgba(72, 110, 218, 0.45);
-  --cyan: #2ee6e6;
-  --text: #d8e4ff;
-  --dim: #7f92c2;
+  --canvas: #010102;
+  --surface-1: #0f1011;
+  --surface-2: #141516;
+  --surface-3: #18191a;
+  --hairline: #23252a;
+  --hairline-strong: #34343a;
+  --ink: #f7f8f8;
+  --ink-muted: #d0d6e0;
+  --ink-subtle: #8a8f98;
+  --ink-tertiary: #62666d;
+  --accent: #5e6ad2;
+  --accent-hover: #828fff;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -12,25 +22,28 @@
 html, body, #app { width: 100%; height: 100%; }
 
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: Inter, -apple-system, 'Segoe UI', system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  letter-spacing: -0.05px;
   overflow: hidden;
 }
 
+/* 表面 = 面板：surface-1 + 发丝线，无阴影无发光 */
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  backdrop-filter: blur(4px);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
 }
 
+/* 眉毛标签：正字距的小号中性标签（Linear taxonomy 样式） */
 .panel h3 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--cyan);
-  padding: 10px 14px 6px;
-  letter-spacing: 2px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-subtle);
+  padding: 14px 16px 8px;
+  letter-spacing: 0.4px;
 }
 
 /* 隐藏 L7 内置 logo 水印（开源版允许；归属信息保留在 README 与地图 attribution） */

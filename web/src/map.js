@@ -5,7 +5,8 @@ import { Map, MapLibre } from '@antv/l7-maps';
 import { getJson } from './api';
 import { gcj02GeoJsonToWgs84, gcj02ToWgs84 } from './gcj02';
 
-const CHORO_COLORS = ['#12315e', '#1c4e8a', '#2e79c9', '#2fb3e8', '#2ee6e6', '#a7f3f3'];
+// 分级色带：Linear 薰衣草阶梯（岗位少=深灰蓝 → 岗位多=亮薰衣草），与石墨底图同语言
+const CHORO_COLORS = ['#1d1f2b', '#2c2f4a', '#3d4173', '#565cc0', '#7b81e8', '#aab0f5'];
 
 // 自托管矢量瓦片服务（planetiler 切片的 MBTiles 由 server/tile-server.mjs 发布）
 const TILE_SERVER = import.meta.env.VITE_TILE_SERVER ?? 'http://localhost:3112';
@@ -27,53 +28,53 @@ function omtDarkStyle() {
       },
     },
     layers: [
-      { id: 'bg', type: 'background', paint: { 'background-color': '#13233f' } },
-      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#1d4f80' } },
-      // ---- 土地类型分色：林/草/沙/冰、居住/工业/商业 各自可辨识 ----
+      { id: 'bg', type: 'background', paint: { 'background-color': '#0a0b0d' } },
+      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#0f151c' } },
+      // ---- 土地类型：石墨基调下的微弱色相区分 ----
       {
         id: 'landcover', type: 'fill', source: 'omt', 'source-layer': 'landcover',
         paint: {
           'fill-color': ['match', ['get', 'class'],
-            'wood', '#1d4534',
-            'grass', '#215239',
-            'sand', '#4a4433',
-            'ice', '#2c4a66',
-            '#1d4534'],
-          'fill-opacity': 0.85,
+            'wood', '#111613',
+            'grass', '#131812',
+            'sand', '#171614',
+            'ice', '#12161c',
+            '#111613'],
+          'fill-opacity': 0.9,
         },
       },
       {
         id: 'landuse', type: 'fill', source: 'omt', 'source-layer': 'landuse',
         paint: {
           'fill-color': ['match', ['get', 'class'],
-            'residential', '#22355e',
-            ['industrial', 'railway', 'airport'], '#2c3a68',
-            ['commercial', 'retail', 'school', 'hospital'], '#33417a',
-            '#22355e'],
-          'fill-opacity': 0.75,
+            'residential', '#121316',
+            ['industrial', 'railway', 'airport'], '#14161b',
+            ['commercial', 'retail', 'school', 'hospital'], '#16181d',
+            '#121316'],
+          'fill-opacity': 0.9,
         },
       },
       {
         id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park',
-        paint: { 'fill-color': '#1f5c41', 'fill-opacity': 0.8 },
+        paint: { 'fill-color': '#121a14', 'fill-opacity': 0.9 },
       },
       {
         id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
-        paint: { 'line-color': '#2a6cb0', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 12, 2.2] },
+        paint: { 'line-color': '#1b2530', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 12, 2.2] },
       },
       {
         id: 'building', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 13,
-        paint: { 'fill-color': '#26375f', 'fill-opacity': 0.85 },
+        paint: { 'fill-color': '#15161a', 'fill-opacity': 0.9 },
       },
-      // ---- 道路分级（两层实现，每层只允许一个 zoom 插值表达式）：高速/干道/省道 亮而粗，县乡道 暗而细 ----
+      // ---- 道路分级（石墨灰阶）：高速最亮，向下递减 ----
       {
         id: 'road-minor', type: 'line', source: 'omt', 'source-layer': 'transportation',
         filter: ['in', ['get', 'class'], ['literal', ['secondary', 'tertiary', 'minor', 'service', 'track', 'path']]],
         paint: {
           'line-color': ['match', ['get', 'class'],
-            'secondary', '#5f83c9',
-            'tertiary', '#4a68a3',
-            '#3c5787'],
+            'secondary', '#4c535d',
+            'tertiary', '#3f4550',
+            '#33383f'],
           'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 10, 1, 14, 2],
         },
       },
@@ -82,15 +83,15 @@ function omtDarkStyle() {
         filter: ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary']]],
         paint: {
           'line-color': ['match', ['get', 'class'],
-            'motorway', '#f6b756',
-            'trunk', '#e8d38a',
-            '#8fb7ff'],
+            'motorway', '#98a2b3',
+            'trunk', '#7b8494',
+            '#5f6774'],
           'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.8, 7, 1.6, 10, 2.6, 14, 4.4],
         },
       },
       {
         id: 'boundary', type: 'line', source: 'omt', 'source-layer': 'boundary',
-        paint: { 'line-color': '#5570a8', 'line-width': 0.9, 'line-dasharray': [2, 2] },
+        paint: { 'line-color': '#2a2d33', 'line-width': 0.9, 'line-dasharray': [2, 2] },
       },
       // ---- 地名标注（分层：放大到不同级别自动浮现；中文由 MapLibre 本地字体渲染） ----
       {
@@ -103,7 +104,7 @@ function omtDarkStyle() {
           'text-size': ['interpolate', ['linear'], ['zoom'], 3, 12, 8, 16],
           'text-letter-spacing': 0.15,
         },
-        paint: { 'text-color': '#eaf1ff', 'text-halo-color': '#0d1830', 'text-halo-width': 1.8 },
+        paint: { 'text-color': '#c8cdd6', 'text-halo-color': '#050607', 'text-halo-width': 1.8 },
       },
       {
         id: 'label-city-major', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -114,7 +115,7 @@ function omtDarkStyle() {
           'text-font': ['Noto Sans Regular'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 18],
         },
-        paint: { 'text-color': '#ffffff', 'text-halo-color': '#0d1830', 'text-halo-width': 2 },
+        paint: { 'text-color': '#e9ecf1', 'text-halo-color': '#050607', 'text-halo-width': 2 },
       },
       {
         id: 'label-city-town', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -125,7 +126,7 @@ function omtDarkStyle() {
           'text-font': ['Noto Sans Regular'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 8, 12, 12, 16],
         },
-        paint: { 'text-color': '#dbe6ff', 'text-halo-color': '#0d1830', 'text-halo-width': 1.6 },
+        paint: { 'text-color': '#c8cdd6', 'text-halo-color': '#050607', 'text-halo-width': 1.6 },
       },
       {
         id: 'label-district', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -136,7 +137,7 @@ function omtDarkStyle() {
           'text-font': ['Noto Sans Regular'],
           'text-size': 12,
         },
-        paint: { 'text-color': '#b7c7ec', 'text-halo-color': '#0d1830', 'text-halo-width': 1.4 },
+        paint: { 'text-color': '#9aa1ab', 'text-halo-color': '#050607', 'text-halo-width': 1.4 },
       },
     ],
   };
@@ -215,7 +216,7 @@ export async function initMap(layers) {
     const maskLayer = new PolygonLayer({ zIndex: 0.5 })
       .source(buildChinaMaskSource(gcj02GeoJsonToWgs84(bounds)))
       .shape('fill')
-      .color('#0a1122')
+      .color('#030304')
       .style({ opacity: 1, pickingEnabled: false });
     scene.addLayer(maskLayer);
   }
@@ -261,7 +262,7 @@ export async function initMap(layers) {
     .source(flows)
     .shape('arc')
     .size(1.2)
-    .color('count', ['#2ee6e6', '#7a7bff', '#ff7b50'])
+    .color('count', ['#3d4173', '#5e6ad2', '#aab0f5'])
     .style({ opacity: 0.55, pickingEnabled: false });
   scene.addLayer(arc);
   layers.find((l) => l.id === 'flows').layer = arc;
@@ -285,7 +286,7 @@ export async function initMap(layers) {
       opacity: 1.0,
       pickingEnabled: false, // 不参与拾取，避免热力晕挡住省面点击
       rampColors: {
-        colors: ['rgba(46,230,230,0.0)', 'rgba(46,180,230,0.5)', 'rgba(122,123,255,0.8)', 'rgba(255,120,80,1.0)'],
+        colors: ['rgba(94,106,210,0.0)', 'rgba(94,106,210,0.5)', 'rgba(130,143,255,0.8)', 'rgba(196,200,255,1.0)'],
         positions: [0, 0.4, 0.7, 1.0],
       },
     });
@@ -297,7 +298,7 @@ export async function initMap(layers) {
     .source(geojson)
     .shape('circle')
     .size(4)
-    .color('#ffd166')
+    .color('#f7f8f8')
     .style({ stroke: '#fff', strokeWidth: 0.6, opacity: 0.9 });
   scene.addLayer(points);
   layers.find((l) => l.id === 'points').layer = points;

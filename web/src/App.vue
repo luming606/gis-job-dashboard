@@ -92,7 +92,7 @@ const layers = reactive([
 ]);
 
 // 分级统计图色带图例（与 map.js 的 CHORO_COLORS 保持一致）
-const legendColors = ['#12315e', '#1c4e8a', '#2e79c9', '#2fb3e8', '#2ee6e6', '#a7f3f3'];
+const legendColors = ['#1d1f2b', '#2c2f4a', '#3d4173', '#565cc0', '#7b81e8', '#aab0f5'];
 
 const cityRankEl = ref(null);
 const skillEl = ref(null);
@@ -134,7 +134,7 @@ function darkChart(title) {
   return {
     backgroundColor: 'transparent',
     grid: { left: 8, right: 20, top: 8, bottom: 8, containLabel: true },
-    textStyle: { color: '#d8e4ff' },
+    textStyle: { color: '#8a8f98' },
     title: { show: false },
   };
 }
@@ -143,18 +143,18 @@ async function loadCharts() {
   const rank = await getJson('/api/stats/city_rank');
   echarts.init(cityRankEl.value).setOption({
     ...darkChart(),
-    xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#7f92c2' } },
+    xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#62666d' } },
     yAxis: {
       type: 'category',
       data: rank.slice(0, 10).map((r) => r.city).reverse(),
-      axisLabel: { color: '#d8e4ff' },
+      axisLabel: { color: '#d0d6e0' },
       axisLine: { show: false }, axisTick: { show: false },
     },
     series: [{
       type: 'bar',
       data: rank.slice(0, 10).map((r) => r.count).reverse(),
       barWidth: 10,
-      itemStyle: { color: '#2ee6e6', borderRadius: 5 },
+      itemStyle: { color: '#5e6ad2', borderRadius: 3 },
     }],
   });
 
@@ -163,18 +163,18 @@ async function loadCharts() {
   const skillPairs = Object.entries(skills.freq).reverse();
   echarts.init(skillEl.value).setOption({
     ...darkChart(),
-    xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#7f92c2' } },
+    xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#62666d' } },
     yAxis: {
       type: 'category',
       data: skillPairs.map(([s]) => s),
-      axisLabel: { color: '#d8e4ff' },
+      axisLabel: { color: '#d0d6e0' },
       axisLine: { show: false }, axisTick: { show: false },
     },
     series: [{
       type: 'bar',
       data: skillPairs.map(([, c]) => c),
       barWidth: 10,
-      itemStyle: { color: '#7a7bff', borderRadius: 5 },
+      itemStyle: { color: '#8a8f98', borderRadius: 3 },
     }],
   });
 
@@ -188,16 +188,16 @@ async function loadCharts() {
     xAxis: {
       type: 'category',
       data: rows.map(([c]) => c),
-      axisLabel: { color: '#d8e4ff', rotate: 30 },
-      axisLine: { lineStyle: { color: '#486eda' } },
+      axisLabel: { color: '#8a8f98', rotate: 30 },
+      axisLine: { lineStyle: { color: '#23252a' } },
     },
-    yAxis: { type: 'value', name: '日薪(元)', nameTextStyle: { color: '#7f92c2' }, axisLabel: { color: '#7f92c2' }, splitLine: { lineStyle: { color: 'rgba(72,110,218,0.2)' } } },
+    yAxis: { type: 'value', name: '日薪(元)', nameTextStyle: { color: '#62666d' }, axisLabel: { color: '#8a8f98' }, splitLine: { lineStyle: { color: '#23252a' } } },
     series: [{
       name: '薪资分布',
       type: 'boxplot',
       data: rows.map(([, b]) =>
         [b.min, b.q1, b.median, b.q3, b.max].map((v) => Math.round(v))),
-      itemStyle: { color: 'rgba(46,230,230,0.25)', borderColor: '#2ee6e6', borderWidth: 1.2 },
+      itemStyle: { color: 'rgba(94,106,210,0.16)', borderColor: '#5e6ad2', borderWidth: 1.2 },
       boxWidth: [10, 22],
       tooltip: {
         formatter: (p) => {
@@ -213,8 +213,8 @@ async function loadCharts() {
   const nodeSet = new Set(Object.keys(coocData.freq));
   const nodes = Object.entries(coocData.freq).map(([name, count]) => ({
     name, symbolSize: 10 + Math.sqrt(count) * 4,
-    itemStyle: { color: '#2ee6e6' },
-    label: { show: true, color: '#d8e4ff', fontSize: 10 },
+    itemStyle: { color: '#575c66' },
+    label: { show: true, color: '#d0d6e0', fontSize: 10 },
   }));
   const links = Object.entries(coocData.cooc)
     .map(([pair, count]) => {
@@ -224,7 +224,7 @@ async function loadCharts() {
     .filter((l) => nodeSet.has(l.source) && nodeSet.has(l.target) && l.count >= 2)
     .map((l) => ({
       ...l,
-      lineStyle: { width: 1 + Math.log2(l.count), color: 'rgba(122,123,255,0.5)', curveness: 0.15 },
+      lineStyle: { width: 1 + Math.log2(l.count), color: 'rgba(94,106,210,0.4)', curveness: 0.15 },
     }));
   echarts.init(coocEl.value).setOption({
     ...darkChart(),
@@ -256,71 +256,84 @@ onMounted(async () => {
 .dashboard { display: flex; flex-direction: column; height: 100%; }
 .panel { display: flex; flex-direction: column; }
 
+/* 顶栏：Linear top-nav —— 画布底 + 发丝底边，无渐变无发光 */
 .topbar {
   display: flex; align-items: center; gap: 24px;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(30, 42, 84, 0.9), rgba(15, 21, 44, 0.9));
+  padding: 0 24px; height: 56px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--canvas);
 }
 .topbar h1 {
-  font-size: 20px; letter-spacing: 4px; color: var(--cyan);
-  text-shadow: 0 0 12px rgba(46, 230, 230, 0.6);
+  font-size: 15px; font-weight: 600; letter-spacing: -0.3px; color: var(--ink);
 }
-.metrics { display: flex; gap: 28px; flex: 1; justify-content: center; }
-.metric { display: flex; flex-direction: column; align-items: center; }
-.metric .value { font-size: 22px; font-weight: 700; color: #fff; }
-.metric .label { font-size: 12px; color: var(--dim); }
-.updated { font-size: 12px; color: var(--dim); }
+.metrics { display: flex; gap: 32px; flex: 1; justify-content: center; }
+.metric { display: flex; flex-direction: column; align-items: flex-start; }
+.metric .value {
+  font-size: 18px; font-weight: 600; color: var(--ink);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.3px;
+}
+.metric .label { font-size: 12px; color: var(--ink-subtle); }
+.updated { font-size: 12px; color: var(--ink-tertiary); }
 
 .grid {
   flex: 1;
   display: grid;
   grid-template-columns: 300px 1fr 300px;
   grid-template-rows: 1fr 200px;
-  gap: 10px;
-  padding: 10px;
+  gap: 12px;
+  padding: 12px;
 }
 .left { grid-row: 1; }
 .right { grid-row: 1; }
 .bottom { grid-column: 1 / 4; display: grid; grid-template-columns: 1fr 1fr; }
-.half { display: flex; flex-direction: column; min-width: 0; border-left: 1px solid var(--border); }
+.half { display: flex; flex-direction: column; min-width: 0; border-left: 1px solid var(--hairline); }
 .half:first-child { border-left: none; }
 .chart { flex: 1; min-height: 0; }
 .chart.wide { height: 150px; }
 
 .map-wrap { position: relative; grid-row: 1; }
-#map { position: absolute; inset: 0; border: 1px solid var(--border); border-radius: 6px; }
+#map { position: absolute; inset: 0; border: 1px solid var(--hairline); border-radius: var(--radius-lg); overflow: hidden; }
 
+/* 图层开关：surface-1 面板 + 中性勾选，选中态用墨色不用彩色 */
 .layer-switch {
   position: absolute; right: 12px; top: 12px; z-index: 10;
   padding: 10px 14px; font-size: 12px;
   display: flex; flex-direction: column; gap: 6px;
 }
-.layer-switch label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.layer-switch label { display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--ink-muted); }
+.layer-switch input { accent-color: var(--accent); }
 
+/* 时间轴：surface-1 浮层；日期 pill 选中 = surface-2 抬升（Linear pricing-tab 语义） */
 .timeline {
   position: absolute; left: 12px; bottom: 12px; z-index: 10;
   display: flex; align-items: center; gap: 12px;
   padding: 8px 14px; font-size: 12px;
 }
 .timeline .play {
-  width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 50%;
-  background: rgba(46, 230, 230, 0.15); color: var(--cyan);
-  cursor: pointer; font-size: 12px; line-height: 1;
+  width: 26px; height: 26px;
+  border: 1px solid var(--hairline-strong); border-radius: var(--radius-md);
+  background: var(--surface-2); color: var(--ink);
+  cursor: pointer; font-size: 11px; line-height: 1;
 }
-.timeline .tl-dates { display: flex; gap: 10px; }
-.timeline .tl-dates span { color: var(--dim); cursor: pointer; padding: 2px 4px; }
+.timeline .play:hover { background: var(--surface-3); }
+.timeline .tl-dates { display: flex; gap: 6px; }
+.timeline .tl-dates span {
+  color: var(--ink-subtle); cursor: pointer; padding: 3px 10px;
+  border-radius: 9999px; background: var(--canvas);
+}
 .timeline .tl-dates span.active {
-  color: var(--cyan); font-weight: 700;
-  border-bottom: 2px solid var(--cyan);
+  color: var(--ink); font-weight: 500;
+  background: var(--surface-2); border: 1px solid var(--hairline-strong);
 }
-.timeline .tl-count { color: #fff; font-weight: 600; }
+.timeline .tl-count {
+  color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums;
+}
 
 .legend {
   position: absolute; left: 12px; top: 12px; z-index: 10;
   display: flex; align-items: center; gap: 4px;
   padding: 8px 12px; font-size: 11px;
 }
-.legend .lg-label { color: var(--dim); }
+.legend .lg-label { color: var(--ink-subtle); }
 .legend .lg-swatch { width: 16px; height: 10px; border-radius: 2px; }
 </style>
