@@ -3,7 +3,7 @@
 > 更新：2026-10-07 ｜ 本文档目标：任何 Agent 读完即可无缝接手
 > 用户：GIS 专业学生 Luming（GitHub: luming606），求职方向 WebGIS
 
-## 〇、本次会话（v1 → v3）做了什么
+## 〇、本次会话（v1 → v4）做了什么
 
 一条主线：把"地信人才求职市场可视化大屏"从零做成可写进简历、已上线公网的作品。
 
@@ -13,7 +13,8 @@
 | W2 服务+大屏 | Express API（9 端点，percentile_cont 箱线、unnest 技能共现）；Vue3+L7(WebGL)+ECharts 大屏：分级统计图/点位热力/流向飞线/聚合点/省份下钻/时间线动画/技能共现网络 | ✅ |
 | W2.5 上线 | 静态化导出 + 前端双模式（全栈/纯静态）+ GitHub Pages 发布 | ✅ |
 | W3 数据+打磨 | 二轮采集（286 条/29 省）；真箱线图、省份下钻、图例、打包分包 | ✅ |
-| **v3 底图** | **全国 OSM → planetiler 切片（442 万瓦片）→ 自研瓦片服务（node:sqlite）→ MapLibre 引擎底图 + GCJ-02→WGS-84 对齐 + 分级中文地名标注** | ✅ 本次会话完成 |
+| v3 底图 | 全国 OSM → planetiler 切片（442 万瓦片）→ 自研瓦片服务（node:sqlite）→ MapLibre 引擎底图 + GCJ-02→WGS-84 对齐 + 分级中文地名标注 | ✅ |
+| **v4 样式+静态底图** | **OSM 样式重做：道路两级分级（高速琥珀/干道暖黄/省道亮蓝/县乡暗蓝）+ 土地类型分色（林/草/沙/冰/居住/工业/商业）+ 标注高对比提亮 + 中国域遮罩（域外压暗，L7 PolygonLayer 实现绕坑）+ 静态瓦片烘焙（server/export-static-tiles.mjs，149 块 z≤6 → GitHub Pages 也有真底图）** | ✅ 本次会话完成 |
 
 **关键成果数字**：442 万矢量瓦片 / 1.2 亿要素 / 4.3GB MBTiles / 切片刻时 7 分 47 秒 /
 286 条岗位 / 29 省 / 仓库 14 个提交 / 线上地址 https://luming606.github.io/gis-job-dashboard/
@@ -97,6 +98,15 @@ Scene 构造也传了 `logoVisible: false`。
    `-Dhttps.proxyHost` 对它的下载器**无效**（要用 curl 预下载）
 6. **MapLibre**：text-field 必须有 style.glyphs 字段否则整个 style 加载失败（底图全没）；CJK 用本地字体
    `localIdeographFontFamily` 可免字体服务器；省名 class 是 `state`（中国省级 admin_level=4）不是 province
+6b. **样式表达式红线**：一个 paint 属性只允许**一个** zoom 插值表达式——道路分级宽度不能在 match 分支里各写
+   interpolate（报 "Only one zoom-based interpolate"），拆成两个图层（road-major/road-minor）各自一条曲线；
+   配色不受限（match 纯常量输出可以）
+6c. **中国域遮罩**：用 L7 PolygonLayer 实现（zIndex 0.5，渲染在 MapLibre 画布之上、分级图之下），**不要**往
+   MapLibre style 里加第二个 geojson source——实测加了会让整个 omt 矢量瓦片源不渲染（原因未查明，绕坑即可）。
+   遮罩洞必须强制顺时针（RFC 7946；DataV 省界环方向不统一，不修正会把全图盖死），代码在 map.js 的 buildChinaMaskSource
+6d. **静态底图烘焙**：`server/export-static-tiles.mjs` 从 MBTiles 抽 z≤6 中国区域瓦片（149 块/4.1MB）到
+   `web/public/static-tiles/`，前端 tile 服务不可用时自动用（更高缩放靠 MapLibre overzoom）。
+   ⚠️ MBTiles 的 tile_row 是 TMS 行号，算纬度必须先转 XYZ 行号（曾因此把 149 块滤成 1 块）
 7. **git 误提交大文件**：曾把 1.5GB pbf 加进索引（.gitignore 漏了 tiles/），修复 = `git rm -r --cached tiles/`
    + amend + `git reflog expire --expire=now --all` + `git gc --prune=now`（仓库 1.49GB → 738KB）。
    **tiles/、*.pbf、*.mbtiles 现已在 .gitignore**
