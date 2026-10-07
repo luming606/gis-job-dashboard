@@ -192,11 +192,12 @@ async function staticTileUrls() {
   try {
     const res = await fetch(import.meta.env.BASE_URL + 'static-tiles/tiles.json');
     if (!res.ok) return null;
-    const j = await res.json();
-    // MapLibre 用 Request 构造瓦片请求，必须是绝对 URL（相对路径会 TypeError）
-    return j.tiles?.length
-      ? j.tiles.map((t) => new URL(t, window.location.href).href)
-      : null;
+    // ⚠️ MapLibre 的 tiles 数组是「URL 模板池」：对每个瓦片它按 urls[(x+y) % urls.length]
+    // 挑一个模板再替换 {z}/{x}/{y}。若传入具体文件清单（无占位符），每个瓦片会被错配到
+    // 清单里任意一个文件——底图整体错乱。因此这里必须返回「单个模板」。
+    // 拼字符串而非 new URL()：后者会把 { } 编码成 %7B%7D，破坏占位符。
+    const base = new URL(import.meta.env.BASE_URL, window.location.href).href;
+    return [`${base}static-tiles/{z}/{x}/{y}.pbf`];
   } catch {
     return null;
   }

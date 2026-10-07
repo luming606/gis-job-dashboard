@@ -115,6 +115,13 @@ Scene 构造也传了 `logoVisible: false`。
    ③ ECharts 极坐标：**angleAxis 放类目**（技能绕圆周）才可读，radiusAxis 放类目会变成同心环且标签重叠
 6f. **无头截图竞态**：initMap 全链路在本机要 25-40 秒（瓦片+转换+图表），截图等待 <30 秒会拍到空白图表；
    用 `web/screenshot-debug.mjs <url> <out> <waitMs>`（带 stage 与错误输出）。Vite dev 偶发 EBUSY 崩溃，重启即可
+6g. **静态瓦片 URL 必须是「单个模板」而非文件清单**（2026-10-07 线上事故根因，用户报「OSM 叠加完全不对」）：
+   MapLibre 的 tiles 数组是模板池，对每个瓦片按 `urls[(x+y) % urls.length]` 挑一个模板再替换 {z}/{x}/{y}。
+   传入 149 个具体文件 URL（无占位符）时，每个瓦片位置会错拿清单里另一个瓦片的内容 → 底图整体错位乱拼。
+   正确写法：返回单元素数组 ``[`${base}static-tiles/{z}/{x}/{y}.pbf`]``；且必须用字符串拼接，
+   不能用 new URL()（会把 { } 编码成 %7B%7D 破坏占位符）。tiles.json 仅作「烘焙是否就绪」探测，不再用作 URL 来源。
+6h. **GitHub camo CDN 缓存**：README 图片替换同名文件后线上仍显示旧图，换文件名（如 dashboard-national.png →
+   screenshot-national.png）破缓存才生效。社交预览图无 API，只能网页手动传（Settings → Social preview）
 7. **git 误提交大文件**：曾把 1.5GB pbf 加进索引（.gitignore 漏了 tiles/），修复 = `git rm -r --cached tiles/`
    + amend + `git reflog expire --expire=now --all` + `git gc --prune=now`（仓库 1.49GB → 738KB）。
    **tiles/、*.pbf、*.mbtiles 现已在 .gitignore**
