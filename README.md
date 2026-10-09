@@ -6,11 +6,11 @@ PostGIS 空间数据库 → Express API → 自托管 OSM 矢量瓦片底图 →
 
 ## 全国视角（带省级地名标注）
 
-![dashboard](docs/screenshot-national.png)
+![dashboard](docs/preview-national.png)
 
-## 放大到城市级（地名逐级浮现 + 道路网）
+## 放大到城市级（路网分级 / 水系 / 绿地 / 铁路 / 道路名，分级色自动淡出）
 
-![dashboard-city](docs/screenshot-city-zoom.png)
+![dashboard-city](docs/preview-city-zoom.png)
 
 ## 在线演示
 
@@ -21,8 +21,9 @@ PostGIS 空间数据库 → Express API → 自托管 OSM 矢量瓦片底图 →
 ## 功能
 
 - **自托管底图**：全国 OSM 数据切片成 442 万矢量瓦片，MapLibre 引擎渲染，石墨深色主题，
-  地名按缩放级别逐级浮现（省 → 市 → 区县），完全自主可控、无第三方地图 API 依赖；
-  纯静态部署（GitHub Pages）使用构建期烘焙的 z≤6 瓦片 + overzoom
+  含土地利用分区（居住/工业/商业/绿地）、水系、**铁路、机场、道路名、山峰与分级地名**，
+  地名按缩放级别逐级浮现（省 → 市 → 区县）；完全自主可控、无第三方地图 API 依赖。
+  纯静态部署（GitHub Pages）使用构建期烘焙的 z≤9 瓦片 + overzoom
 - **省级分级统计图**：岗位越多颜色越深（服务端聚合 + 省界 GeoJSON join），点击省面下钻明细
 - **点位热力图**：WebGL 核密度渲染，看清城市内部聚集（光谷、张江…）
 - **流向连线 / 聚合点**：产业集聚弧线（示意语义）；聚合点可点击查看公司/薪资/技能
@@ -55,7 +56,7 @@ percentile_cont 箱线、unnest 共现）              │
         │                                        │
         ▼                                        ▼
 Vue3 + Vite + AntV L7 + ECharts + MapLibre（自动探测瓦片服务，可用则挂自托管底图）
-        └── 纯静态模式：探测失败自动回退构建期烘焙的静态矢量瓦片（z≤6 + overzoom）与静态 JSON（GitHub Pages 部署）
+        └── 纯静态模式：探测失败自动回退构建期烘焙的静态矢量瓦片（z≤9 + overzoom）与静态 JSON（GitHub Pages 部署）
 ```
 
 **坐标系双轨制**：PostGIS `geom`(WGS-84/4326) 做空间分析；`lng/lat`(GCJ-02) 与高德生态对齐。

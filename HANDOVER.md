@@ -16,10 +16,11 @@
 | v3 底图 | 全国 OSM → planetiler 切片（442 万瓦片）→ 自研瓦片服务（node:sqlite）→ MapLibre 引擎底图 + GCJ-02→WGS-84 对齐 + 分级中文地名标注 | ✅ |
 | **v5 设计语言** | **Linear DESIGN.md（VoltAgent awesome-design-md）重构：近黑画布/四级表面阶梯/发丝线/单一薰衣草强调色/Inter 字体栈；地图改石墨中性底图+薰衣草数据色；ECharts 单色化** | ✅ |
 | **v6 交互升级** | **城市榜改棒棒糖图（末端数值标签）；技能榜改极坐标圆形图；共现网络改自研 canvas 3D 技能球（拖拽惯性旋转/悬停看共现，替换坏掉的 echarts-gl graphGL）；箱线图工具提示** | ✅ |
-| **v7/v8 静态底图修复** | **烘焙瓦片解压（gzip→裸 MVT）+ 绝对 URL——GitHub Pages 首次拥有真底图**；极坐标轴纠正（技能绕圆周） | ✅ 本次会话完成 |
+| **v7/v8 静态底图修复** | **烘焙瓦片解压（gzip→裸 MVT）+ 绝对 URL + tiles 模板池修复——GitHub Pages 拥有对齐的真底图**；极坐标轴纠正（技能绕圆周） | ✅ |
+| **v9 地图细节** | **土地/建筑色块提亮一档（房区/街区可见）、补铁路/机场/山峰/道路名/机场名图层、分级图随缩放淡出（城市级不再有省级蒙层）、线上烘焙 z6→z9（5939 块/137MB）** | ✅ 本次会话完成 |
 
 **关键成果数字**：442 万矢量瓦片 / 1.2 亿要素 / 4.3GB MBTiles / 切片刻时 7 分 47 秒 /
-286 条岗位 / 29 省 / 仓库 14 个提交 / 线上地址 https://luming606.github.io/gis-job-dashboard/
+286 条岗位 / 29 省 / 线上地址 https://luming606.github.io/gis-job-dashboard/
 
 ## 一、用户是谁、要什么
 
@@ -122,6 +123,17 @@ Scene 构造也传了 `logoVisible: false`。
    不能用 new URL()（会把 { } 编码成 %7B%7D 破坏占位符）。tiles.json 仅作「烘焙是否就绪」探测，不再用作 URL 来源。
 6h. **GitHub camo CDN 缓存**：README 图片替换同名文件后线上仍显示旧图，换文件名（如 dashboard-national.png →
    screenshot-national.png）破缓存才生效。社交预览图无 API，只能网页手动传（Settings → Social preview）
+6i. **分级图（choropleth）在城市级是负资产**（v9 修复）：省级整屏同色蒙层在放大进省内部后既无信息量、
+   又把底图细节（街区/水系/路网）洗白。解法 = 随缩放淡出（map.js 的 applyChoroFade：z≤6 全强度 0.5，
+   z6→9 线性淡出，z≥9 为 0），用 `scene.map.on('zoom')` + `scene.map.getZoom()`（L7 的 IMapService 转发）+
+   `choropleth.style({opacity})` 动态更新；加 0.08 变化阈值避免高频重建。
+6j. **L7 固有的 console 噪音**：静态模式下会出现若干 `console.error('Error', Promise)`（L7 内部吞掉的
+   rejected promise），经 v8/v9 对照实验确认为 L7 既有行为、非项目回归；页面 `window.__errs` 为 0、
+   渲染正常，**不需要追查**（曾误判为 zoom-fade 引起，浪费一轮排查）。
+6k. **静态瓦片烘焙深度**（2026-10-07 由 z6 提升到 z9）：解码 MPV 实测——z6 瓦片已含 residential/suburb/quarter
+   土地利用与公园；z8 起有铁路与耕地/林地；z9 起有工业/商业/大学等丰富类别；z13+ 才有建筑轮廓，z10+ 才有机场跑道。
+   z9 烘焙产物 5939 块 / 137MB：*.pbf 被 .gitignore 排除故不进 main（main 只追踪 tiles.json），
+   全部体积只存在于 gh-pages 分支与本地磁盘。**注意 gh-pages 分支历史会随每次部署累积**，必要时可压缩其历史。
 7. **git 误提交大文件**：曾把 1.5GB pbf 加进索引（.gitignore 漏了 tiles/），修复 = `git rm -r --cached tiles/`
    + amend + `git reflog expire --expire=now --all` + `git gc --prune=now`（仓库 1.49GB → 738KB）。
    **tiles/、*.pbf、*.mbtiles 现已在 .gitignore**

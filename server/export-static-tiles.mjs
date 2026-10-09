@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MBTILES = path.join(__dirname, '..', 'tiles', 'china.mbtiles');
 const OUT = path.join(__dirname, '..', 'web', 'public', 'static-tiles');
-const MAX_ZOOM = 6;
+const MAX_ZOOM = 9; // z≤9：线上静态版可放大到城市级（含街区/道路分级），更高靠 MapLibre overzoom
 // 中国粗边界（含南海诸岛余量），减少无关瓦片
 const BBOX = { minLng: 72, minLat: 2, maxLng: 136, maxLat: 55 };
 

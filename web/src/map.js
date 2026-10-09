@@ -30,17 +30,17 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
     },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': '#0a0b0d' } },
-      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#0f151c' } },
-      // ---- 土地类型：石墨基调下的微弱色相区分 ----
+      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#111a27' } },
+      // ---- 土地类型：石墨基调 + 可辨识色相区分（v9 提亮一档，街区/林草可见但不抢数据层） ----
       {
         id: 'landcover', type: 'fill', source: 'omt', 'source-layer': 'landcover',
         paint: {
           'fill-color': ['match', ['get', 'class'],
-            'wood', '#111613',
-            'grass', '#131812',
-            'sand', '#171614',
-            'ice', '#12161c',
-            '#111613'],
+            'wood', '#131c15',
+            'grass', '#162016',
+            'sand', '#1f1d16',
+            'ice', '#161c26',
+            '#131c15'],
           'fill-opacity': 0.9,
         },
       },
@@ -48,16 +48,22 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
         id: 'landuse', type: 'fill', source: 'omt', 'source-layer': 'landuse',
         paint: {
           'fill-color': ['match', ['get', 'class'],
-            'residential', '#121316',
-            ['industrial', 'railway', 'airport'], '#14161b',
-            ['commercial', 'retail', 'school', 'hospital'], '#16181d',
-            '#121316'],
+            'residential', '#1a1d24',
+            ['industrial', 'railway', 'airport'], '#1f232d',
+            ['commercial', 'retail', 'school', 'hospital'], '#252a37',
+            '#1a1d24'],
           'fill-opacity': 0.9,
         },
       },
       {
         id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park',
-        paint: { 'fill-color': '#121a14', 'fill-opacity': 0.9 },
+        paint: { 'fill-color': '#16261a', 'fill-opacity': 0.9 },
+      },
+      // 机场停机坪（面）：与工业用地同档但稍亮，城市级可见机场轮廓
+      {
+        id: 'aeroway-apron', type: 'fill', source: 'omt', 'source-layer': 'aeroway',
+        filter: ['==', ['get', 'class'], 'apron'],
+        paint: { 'fill-color': '#21262f', 'fill-opacity': 0.9 },
       },
       {
         id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
@@ -65,7 +71,11 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
       },
       {
         id: 'building', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 13,
-        paint: { 'fill-color': '#15161a', 'fill-opacity': 0.9 },
+        paint: {
+          'fill-color': '#252932',
+          'fill-outline-color': '#31363f',
+          'fill-opacity': 0.9,
+        },
       },
       // ---- 道路分级（石墨灰阶）：高速最亮，向下递减 ----
       {
@@ -77,6 +87,24 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
             'tertiary', '#3f4550',
             '#33383f'],
           'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 10, 1, 14, 2],
+        },
+      },
+      // 铁路（虚线）+ 机场跑道（实线略亮），压在主干道之下、次要道路之上
+      {
+        id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['==', ['get', 'class'], 'rail'],
+        paint: {
+          'line-color': '#4a5262',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 10, 0.9, 14, 1.4],
+          'line-dasharray': [3, 2],
+        },
+      },
+      {
+        id: 'aeroway-runway', type: 'line', source: 'omt', 'source-layer': 'aeroway',
+        filter: ['in', ['get', 'class'], ['literal', ['runway', 'taxiway']]],
+        paint: {
+          'line-color': '#59626f',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1, 14, 3],
         },
       },
       {
@@ -95,6 +123,28 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
         paint: { 'line-color': '#2a2d33', 'line-width': 0.9, 'line-dasharray': [2, 2] },
       },
       // ---- 地名标注（分层：放大到不同级别自动浮现；中文由 MapLibre 本地字体渲染） ----
+      // 山峰标注：从 z7 起以低对比小字浮现（比城市名低优先级，冲突时让位）
+      {
+        id: 'label-peak', type: 'symbol', source: 'omt', 'source-layer': 'mountain_peak',
+        minzoom: 7,
+        layout: {
+          'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 10,
+        },
+        paint: { 'text-color': '#79808d', 'text-halo-color': '#050607', 'text-halo-width': 1 },
+      },
+      // 机场名（小字，与跑道配合）
+      {
+        id: 'label-airport', type: 'symbol', source: 'omt', 'source-layer': 'aerodrome_label',
+        minzoom: 8,
+        layout: {
+          'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 11,
+        },
+        paint: { 'text-color': '#8f97a5', 'text-halo-color': '#050607', 'text-halo-width': 1.2 },
+      },
       {
         id: 'label-province', type: 'symbol', source: 'omt', 'source-layer': 'place',
         filter: ['in', ['get', 'class'], ['literal', ['state', 'province']]],
@@ -128,6 +178,20 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
           'text-size': ['interpolate', ['linear'], ['zoom'], 8, 12, 12, 16],
         },
         paint: { 'text-color': '#c8cdd6', 'text-halo-color': '#050607', 'text-halo-width': 1.6 },
+      },
+      // 道路名（沿路排布，z10 起浮现）：补齐"完整地图"观感的关键一层
+      {
+        id: 'label-road', type: 'symbol', source: 'omt', 'source-layer': 'transportation_name',
+        minzoom: 10,
+        filter: ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]],
+        layout: {
+          'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 10, 9, 14, 12],
+          'symbol-placement': 'line',
+          'text-rotation-alignment': 'map',
+        },
+        paint: { 'text-color': '#7c8595', 'text-halo-color': '#0a0b0d', 'text-halo-width': 1.2 },
       },
       {
         id: 'label-district', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -217,7 +281,7 @@ export async function initMap(layers) {
         glyphs: live
           ? `${TILE_SERVER}/fonts/{fontstack}/{range}.pbf`
           : './static-tiles/fonts/{fontstack}/{range}.pbf', // 静态部署无字形服务；中文走本地字体渲染
-        maxzoom: live ? 14 : 6,
+        maxzoom: live ? 14 : 9,
       }),
       // 中文地名用浏览器本地字体现场生成 SDF，无需字形服务器（MapLibre 专为 CJK 设计的能力）
       localIdeographFontFamily: "'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif",
@@ -257,6 +321,28 @@ export async function initMap(layers) {
     .active({ color: 'rgba(255,255,255,0.25)' });
   scene.addLayer(choropleth);
   layers.find((l) => l.id === 'choropleth').layer = choropleth;
+
+  // 分级图随缩放淡出：全国视角（z≤6）是全强度分级语义；进入城市级（z≥9）后
+  // 整屏同色的省级蒙层既无信息量又会盖住底图细节（街区/水系/路网），故线性淡出到 0。
+  // 仅当透明度实际变化时才更新样式（zoom 事件高频触发，避免无谓的 L7 样式重建）。
+  const CHORO_FULL = 0.5;
+  let lastChoroOp = null;
+  const applyChoroFade = (zoom) => {
+    const op = zoom <= 6 ? CHORO_FULL : zoom >= 9 ? 0 : (CHORO_FULL * (9 - zoom)) / 3;
+    if (lastChoroOp !== null && Math.abs(op - lastChoroOp) < 0.08) return;
+    lastChoroOp = op;
+    try {
+      choropleth.style({ opacity: op });
+    } catch { /* 忽略：保底静态透明度 */ }
+  };
+  try {
+    // scene.map 是 L7 的 IMapService（BaseMapService 子类），on/getZoom 转发至底层引擎
+    const mapService = scene.map;
+    if (mapService?.on && mapService?.getZoom) {
+      mapService.on('zoom', () => applyChoroFade(mapService.getZoom()));
+      applyChoroFade(mapService.getZoom());
+    }
+  } catch { /* 拿不到地图服务时保留静态透明度 */ }
 
   // ---- 省级下钻：点击省面弹出该省明细 ----
   const provinceStats = await getJson('/api/stats/province-stats');
