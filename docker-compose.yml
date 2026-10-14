@@ -1,0 +1,70 @@
+# 一键启动：docker compose up --build
+# 四个服务：db（PostGIS）/ api（Express）/ tiles（自托管瓦片）/ web（大屏前端）
+# 首次启动前请把 china.mbtiles 放入 ./tiles/（没有也可先跑，大屏用烘焙静态底图兜底；
+# 瓦片服务缺数据文件时会退出，不影响其他三个服务）。
+services:
+  db:
+    image: docker.io/postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gisjobs}
+      # 本地开发默认值，仅用于本机；不要用于生产，改密码后保持与 .env 的 DATABASE_URL 一致
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gisjobs}
+      POSTGRES_DB: ${POSTGRES_DB:-gisjobs}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-gisjobs} -d $${POSTGRES_DB:-gisjobs}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5432:5432" # 本机 psql / ETL 入库用
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+      target: api
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-gisjobs}:${POSTGRES_PASSWORD:-gisjobs}@db:5432/${POSTGRES_DB:-gisjobs}
+      PORT: 3111
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3111:3111"
+    restart: unless-stopped
+
+  tiles:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+      target: tiles
+    environment:
+      MBTILES: /data/china.mbtiles
+      TILE_PORT: 3112
+      TILE_PUBLIC_BASE: http://localhost:3112
+    volumes:
+      - ./tiles:/data:ro # 把 china.mbtiles 放进 ./tiles/
+    ports:
+      - "3112:3112"
+    # 缺数据文件时主动退出（日志会提示把 china.mbtiles 放入 ./tiles/），避免空转；
+    # 放入文件后执行 docker compose up -d tiles 即可启动。不影响其他服务。
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        VITE_TILE_SERVER: ${VITE_TILE_SERVER:-http://localhost:3112}
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

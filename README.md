@@ -64,29 +64,19 @@ Vue3 + Vite + AntV L7 + ECharts + MapLibre（自动探测瓦片服务，可用�
 
 ## 快速开始（本地全栈）
 
-依赖：Node 20+（瓦片服务用内置 `node:sqlite`）、PostgreSQL 16 + PostGIS 3、Python 3.10+
+前提：已安装 Docker 与 Docker Compose v2。
+
+- 数据库首次启动为空：跑 ETL 入库（需要高德 Web 服务 Key，见 `.env.example`）后大屏才有数据。
+- 自托管瓦片底图：首次启动前把 `china.mbtiles`（4.3GB，自托管瓦片数据）放入 `tiles/`。没有它也能先跑起来，大屏自动用烘焙的静态底图兜底，瓦片服务会在日志里提示缺少数据文件；放入文件后执行 `docker compose up -d tiles` 即可启用自托管底图。
+- 从零重建切片（需 JDK 21 + planetiler.jar + OSM 数据）见 docs/PLAN.md 与 HANDOVER.md。
 
 ```bash
-# 1. 数据库（连接串放项目根 .env，见 .env.example）
-psql -U postgres -c "CREATE DATABASE gisjobs;"
-psql -U postgres -d gisjobs -f db/init.sql
-
-# 2. ETL：采集数据 -> 清洗 -> 入库（需要高德 Web服务 Key 做地理编码）
-cd etl && pip install -r requirements.txt
-python pipeline.py        # AMAP_KEY=xxx python pipeline.py
-python load_db.py
-
-# 3. API + 大屏
-cd ../server && npm install && node index.js    # API :3111
-cd ../web && npm install && npm run dev         # 前端 :5173
-
-# 4.（可选）自托管瓦片底图
-#   已有切片产物时只需：
-cd ../server && node tile-server.mjs            # 瓦片服务 :3112
-#   从零重建切片（需 JDK 21 + planetiler.jar + OSM 数据）见 docs/PLAN.md 与 HANDOVER.md
+docker compose up --build
 ```
 
-Windows 下可直接双击 `start_dashboard.bat`（前提：`.env` 与数据库已就绪）。
+打开 http://localhost:5173：顶部指标牌显示岗位数即为 API 直连成功；地图能放大到城市级街道即为瓦片服务正常。
+
+停止：`docker compose down`（加 `-v` 会清空数据库卷）。
 
 ## 数据说明与免责声明
 
@@ -105,7 +95,7 @@ Windows 下可直接双击 `start_dashboard.bat`（前提：`.env` 与数据库�
 - [x] ~~纯静态部署（GitHub Pages）烘焙矢量瓦片底图~~ ✅ v7 完成
 - [ ] 多期采集滚动（岗位增长时间线的真实多期数据）
 - [ ] 自然语言查询入口（"武汉有哪些 OpenLayers 的实习？"→ 空间 SQL + 地图联动）
-- [ ] Docker Compose 一键部署
+- [x] Docker Compose 一键部署
 
 ## 技术要点（面试预演）
 

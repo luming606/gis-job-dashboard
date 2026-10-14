@@ -2,6 +2,9 @@
 -- 坐标系约定：lng/lat = GCJ-02（前端展示，与高德底图/DataV 边界一致）
 --             geom   = WGS-84 SRID 4326（空间分析，ST_DWithin 等）
 
+-- PostGIS 扩展：geometry 类型依赖它；幂等，手动建库与 Docker 首次启动都可用
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 CREATE TABLE IF NOT EXISTS cities (
   id       serial PRIMARY KEY,
   name     text NOT NULL UNIQUE,
