@@ -1,0 +1,12 @@
+.git
+.gitignore
+node_modules
+web/dist
+web/node_modules
+.env
+tiles/
+*.mbtiles
+*.pbf
+*.log
+.DS_Store
+etl/__pycache__
