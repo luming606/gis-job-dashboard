@@ -1,6 +1,6 @@
 # GIS 人才求职市场大屏 —— 项目交接文档（给接手的 Agent）
 
-> 更新：2026-10-07 ｜ 本文档目标：任何 Agent 读完即可无缝接手
+> 更新：2026-11-05 ｜ 本文档目标：任何 Agent 读完即可无缝接手
 > 用户：GIS 专业学生 Luming（GitHub: luming606），求职方向 WebGIS
 
 ## 〇、本次会话（v1 → v4）做了什么
@@ -18,9 +18,10 @@
 | **v6 交互升级** | **城市榜改棒棒糖图（末端数值标签）；技能榜改极坐标圆形图；共现网络改自研 canvas 3D 技能球（拖拽惯性旋转/悬停看共现，替换坏掉的 echarts-gl graphGL）；箱线图工具提示** | ✅ |
 | **v7/v8 静态底图修复** | **烘焙瓦片解压（gzip→裸 MVT）+ 绝对 URL + tiles 模板池修复——GitHub Pages 拥有对齐的真底图**；极坐标轴纠正（技能绕圆周） | ✅ |
 | **v9 地图细节** | **土地/建筑色块提亮一档（房区/街区可见）、补铁路/机场/山峰/道路名/机场名图层、分级图随缩放淡出（城市级不再有省级蒙层）、线上烘焙 z6→z9（5939 块/137MB）** | ✅ 本次会话完成 |
+| **v10 美化 polish** | **地图弹窗深色化、图例与分级色同源（CHORO_COLORS 导出共用）、技能榜极坐标改横向棒棒糖、薪资箱线图改暗金、底栏 250px、图例并入图层开关、技能球悬停连线高亮 + 背面压暗、自定义比例尺、骨架占位、指标数字滚动、时间轴当日新增、1100px 响应式断点** | ✅ |
 
 **关键成果数字**：442 万矢量瓦片 / 1.2 亿要素 / 4.3GB MBTiles / 切片刻时 7 分 47 秒 /
-286 条岗位 / 29 省 / 线上地址 https://luming606.github.io/gis-job-dashboard/
+325 条岗位 / 29 省 / 平均日薪 ¥324 / 线上地址 https://luming606.github.io/gis-job-dashboard/
 
 ## 一、用户是谁、要什么
 
@@ -41,7 +42,7 @@
 - **在线演示**：https://luming606.github.io/gis-job-dashboard/ （gh-pages 分支；纯静态，自动回退内置引擎无底图）
 - **本地全栈版**：双击 `start_dashboard.bat`（需先起瓦片服务，见下）
 - **三个服务端口**：API `3111`（server/index.js）、瓦片 `3112`（server/tile-server.mjs）、前端 `5173`（vite dev）
-- **数据**：286 条真实岗位 / 29 省 / 平均日薪 ¥317，存于 PostGIS `gisjobs` 库 + `data/staged_jobs.json`
+- **数据**：325 条真实岗位 / 29 省 / 平均日薪 ¥324，存于 PostGIS `gisjobs` 库 + `data/staged_jobs.json`
 - **本地启动瓦片服务**：`cd server && node tile-server.mjs`（依赖 `tiles/china.mbtiles`，4.3GB）
 
 ## 三、关键环境事实（接手必读）
