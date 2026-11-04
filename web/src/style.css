@@ -50,3 +50,23 @@ body {
 .l7-logo {
   display: none !important;
 }
+
+/* L7 地图弹窗：跟随深色系统（默认白底会打破深色大屏） */
+.l7-popup-content {
+  background: #141516 !important;
+  border: 1px solid #34343a;
+  border-radius: 8px;
+  color: #f7f8f8;
+  box-shadow: none;
+  padding: 10px 12px;
+}
+.l7-popup-content b { color: #f7f8f8; }
+.l7-popup-anchor-bottom .l7-popup-tip { border-top-color: #141516 !important; }
+.l7-popup-anchor-top .l7-popup-tip { border-bottom-color: #141516 !important; }
+.l7-popup-close-button { color: #8a8f98 !important; }
+
+/* 小屏堆叠断点：侧栏/底栏纵向排列，恢复页面滚动 */
+@media (max-width: 1100px) {
+  html, body, #app { height: auto; }
+  body { overflow: auto; }
+}

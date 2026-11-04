@@ -6,7 +6,8 @@ import { getJson } from './api';
 import { gcj02GeoJsonToWgs84, gcj02ToWgs84 } from './gcj02';
 
 // 分级色带：Linear 薰衣草阶梯（岗位少=深灰蓝 → 岗位多=亮薰衣草），与石墨底图同语言
-const CHORO_COLORS = ['#2a2d44', '#333760', '#41467f', '#565cc0', '#7b81e8', '#aab0f5'];
+// 由 App.vue 图例直接引用，保证图例与地图用同一套颜色
+export const CHORO_COLORS = ['#2a2d44', '#333760', '#41467f', '#565cc0', '#7b81e8', '#aab0f5'];
 
 // 自托管矢量瓦片服务（planetiler 切片的 MBTiles 由 server/tile-server.mjs 发布）
 const TILE_SERVER = import.meta.env.VITE_TILE_SERVER ?? 'http://localhost:3112';
@@ -289,6 +290,40 @@ export async function initMap(layers) {
     : new Map({ center: [112.5, 33.5], zoom: 4.2, style: { background: '#0b1026' } });
   const scene = new Scene({ id: 'map', map: mapEngine, logoVisible: false });
 
+  // ---- 自定义比例尺：不依赖底层引擎控件，MapLibre / L7 内置两种引擎都能用 ----
+  try {
+    const mapEl = document.getElementById('map');
+    const scaleEl = document.createElement('div');
+    scaleEl.style.cssText = 'position:absolute;right:12px;bottom:12px;z-index:10;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:11px;color:#8a8f98;pointer-events:none;';
+    const scaleLabel = document.createElement('div');
+    const scaleLine = document.createElement('div');
+    scaleLine.style.cssText = 'height:6px;border-bottom:2px solid #d0d6e0;border-left:2px solid #d0d6e0;border-right:2px solid #d0d6e0;';
+    scaleEl.appendChild(scaleLabel);
+    scaleEl.appendChild(scaleLine);
+    mapEl.appendChild(scaleEl);
+    const mapSvc = scene.map;
+    const updateScale = () => {
+      try {
+        const z = mapSvc.getZoom();
+        const c = mapSvc.getCenter() || {};
+        const lat = c.lat ?? 33.5;
+        const mpp = 156543.03392 * Math.cos((lat * Math.PI) / 180) / (2 ** z);
+        const targets = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000];
+        let best = targets[0];
+        for (const t of targets) {
+          if (t / mpp <= 120) best = t; else break;
+        }
+        scaleLine.style.width = `${Math.round(best / mpp)}px`;
+        scaleLabel.textContent = best >= 1000 ? `${best / 1000} km` : `${best} m`;
+      } catch { /* 拿不到地图状态时保持上一次显示 */ }
+    };
+    if (mapSvc?.on) {
+      mapSvc.on('zoom', updateScale);
+      mapSvc.on('move', updateScale);
+    }
+    updateScale();
+  } catch { /* 比例尺失败不影响地图主流程 */ }
+
   // 底图坐标系为 WGS-84 时，所有 GCJ-02 数据统一逆转换后再上图
   const toDisplayCoords = (geojson) => (useTiles ? gcj02GeoJsonToWgs84(geojson) : geojson);
   const toDisplayPoint = ([lng, lat]) => (useTiles ? gcj02ToWgs84(lng, lat) : [lng, lat]);
@@ -359,7 +394,7 @@ export async function initMap(layers) {
     const salary = s.avg_daily ? `平均日薪 ¥${s.avg_daily}` : '薪资样本不足';
     new Popup({ anchors: 'bottom' })
       .setLnglat(e.lngLat)
-      .setHTML(`<div style="font-size:13px;line-height:1.8;color:#1a1a2e;max-width:260px">
+      .setHTML(`<div style="font-size:13px;line-height:1.8;color:#f7f8f8;max-width:260px">
         <b>${name}</b> · ${s.total} 条岗位 · ${salary}<br/>
         城市：${cities || '—'}<br/>
         热门技能：${skills || '—'}
@@ -418,7 +453,7 @@ export async function initMap(layers) {
     const p = e.feature?.properties || {};
     new Popup({ anchors: 'bottom' })
       .setLnglat(e.lngLat)
-      .setHTML(`<div style="font-size:13px;line-height:1.7;color:#1a1a2e">
+      .setHTML(`<div style="font-size:13px;line-height:1.7;color:#f7f8f8;max-width:260px">
         <b>${p.title}</b> — ${p.company}<br/>
         ${p.city} · ${p.salary_raw || '薪资面议'}<br/>
         ${(p.skills || []).join(' / ') || '无技能标签'}
@@ -442,6 +477,11 @@ export async function initMap(layers) {
   };
   apply(dates.length - 1); // 初始显示全量
 
+  // 每日新增：按采集日期统计（缺失日期归末日的口径与 apply 一致）
+  const lastDate = dates[dates.length - 1];
+  const perDate = dates.map((d) => geojson.features.filter(
+    (f) => (f.properties.collected_date || lastDate) === d).length);
+
   scene.on('loaded', () => console.log('L7 scene loaded'));
-  return { scene, timeline: { dates, apply, total: geojson.features.length } };
+  return { scene, timeline: { dates, apply, total: geojson.features.length, perDate } };
 }

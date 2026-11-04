@@ -1,8 +1,8 @@
-// 3D 技能球：斐波那契点分布 + 拖拽惯性旋转 + 悬停查询。
+// 3D 技能球：斐波那契点分布 + 拖拽惯性旋转 + 悬停查询 + 共现连线高亮。
 // 用原生 canvas 而非 echarts-gl——graphGL 的力导向渲染循环在本机曾把主线程卡死，且百行内自绘更轻。
 
 const LINEAR = {
-  ink: '#f7f8f8', inkMuted: '#d0d6e0', inkSubtle: '#8a8f98',
+  ink: '#f7f8f8', inkMuted: '#d0d6e0', inkSubtle: '#8a8f98', inkDim: '#62666d',
   accent: '#5e6ad2', accentHover: '#828fff', hairline: '#34343a',
 };
 
@@ -115,24 +115,46 @@ export function mountSkillSphere(el, skills, cooc, { topN = 26 } = {}) {
       return { ...p, sx: cx + x1 * R * s, sy: cy + y1 * R * s, scale: s, depth: z2 };
     }).sort((a, b) => a.depth - b.depth); // 远的先画
 
+    // 拾取 pass：先确定悬停点，连线与伙伴高亮都需要它
     hover = null;
     for (const p of proj) {
       const t = (p.count / maxCount) ** 0.6;
-      const fontSize = (11 + t * 12) * p.scale;
-      const front = p.depth < 0; // z 朝向观察者为负
-      const alpha = front ? 0.55 + 0.45 * (1 + p.depth / cam) : 0.28;
-      const isHover = !dragging &&
-        Math.abs(p.sx - mx) < p.name.length * fontSize * 0.35 && Math.abs(p.sy - my) < fontSize * 0.8;
-      if (isHover) hover = p;
-
-      ctx.font = `${front ? 500 : 400} ${fontSize.toFixed(1)}px Inter, 'Microsoft YaHei', sans-serif`;
+      p._fs = (11 + t * 12) * p.scale;
+      p._front = p.depth < 0; // z 朝向观察者为负
+      p._hover = !dragging &&
+        Math.abs(p.sx - mx) < p.name.length * p._fs * 0.35 && Math.abs(p.sy - my) < p._fs * 0.8;
+      if (p._hover) hover = p;
+    }
+    // 连线 pass：悬停时画出与常共现伙伴的连线（在标签之下）
+    let partnerNames = null;
+    if (hover && !dragging) {
+      partnerNames = new Set((partners[hover.name] || []).slice(0, 3).map(([n]) => n));
+      ctx.save();
+      ctx.strokeStyle = LINEAR.accentHover;
+      ctx.globalAlpha = 0.45;
+      ctx.lineWidth = 1;
+      for (const p of proj) {
+        if (!partnerNames.has(p.name)) continue;
+        ctx.beginPath();
+        ctx.moveTo(hover.sx, hover.sy);
+        ctx.lineTo(p.sx, p.sy);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // 标签 pass：背面按深度压暗，伙伴与悬停点用强调色
+    for (const p of proj) {
+      const alpha = p._front ? 0.55 + 0.45 * (1 + p.depth / cam) : 0.2;
+      ctx.font = `${p._front ? 500 : 400} ${p._fs.toFixed(1)}px Inter, 'Microsoft YaHei', sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = isHover ? LINEAR.accentHover : (top3.has(p.name) ? LINEAR.ink : LINEAR.inkSubtle);
+      ctx.fillStyle = p._hover ? LINEAR.accentHover
+        : (partnerNames && partnerNames.has(p.name) ? LINEAR.accent
+        : (p._front ? (top3.has(p.name) ? LINEAR.ink : LINEAR.inkSubtle) : LINEAR.inkDim));
       ctx.globalAlpha = Math.min(1, alpha);
       ctx.fillText(p.name, p.sx, p.sy);
-      if (isHover) {
+      if (p._hover) {
         ctx.globalAlpha = 1;
-        ctx.fillText(`· ${p.count}`, p.sx + p.name.length * fontSize * 0.55, p.sy);
+        ctx.fillText(`· ${p.count}`, p.sx + p.name.length * p._fs * 0.55, p.sy);
       }
     }
     ctx.globalAlpha = 1;
