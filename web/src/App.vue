@@ -23,6 +23,12 @@
       <section class="map-wrap">
         <div id="map"></div>
         <div class="layer-switch panel">
+          <div class="legend-row">
+            <span class="lg-label">岗位少</span>
+            <span class="lg-swatch" v-for="(c, i) in legendColors" :key="i" :style="{ background: c }"></span>
+            <span class="lg-label">岗位多</span>
+          </div>
+          <div class="ctl-divider"></div>
           <label v-for="opt in layers" :key="opt.id">
             <input type="checkbox" v-model="opt.on" @change="toggleLayer(opt)" />
             {{ opt.name }}
@@ -40,18 +46,13 @@
               @click="seek(i)"
             >{{ d }}</span>
           </div>
-          <div class="tl-count">累计 {{ curCount }} 条</div>
-        </div>
-        <div class="legend panel">
-          <span class="lg-label">岗位少</span>
-          <span class="lg-swatch" v-for="(c, i) in legendColors" :key="i" :style="{ background: c }"></span>
-          <span class="lg-label">岗位多</span>
+          <div class="tl-count">当日新增 {{ curDelta }} 条</div>
         </div>
       </section>
 
       <!-- 右列 -->
       <section class="panel right">
-        <h3>技能需求 TOP15</h3>
+        <h3>技能需求 TOP10</h3>
         <div ref="skillEl" class="chart"></div>
       </section>
 
@@ -75,15 +76,36 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import * as echarts from 'echarts';
 import { getJson } from './api';
 import { mountSkillSphere } from './skillSphere';
-import { initMap } from './map';
+import { initMap, CHORO_COLORS } from './map';
 
 const overview = ref(null);
+// 指标数字滚动：加载后从 0  ease-out 到目标值（减动效偏好时直接落点）
+const animated = reactive({ total: 0, cities: 0, provinces: 0, salary: 0 });
 const metrics = computed(() => overview.value ? [
-  { label: '岗位总量', value: overview.value.total },
-  { label: '覆盖城市', value: overview.value.city_count },
-  { label: '覆盖省份', value: overview.value.province_count },
-  { label: '平均日薪', value: '¥' + overview.value.avg_daily_salary },
+  { label: '岗位总量', value: animated.total },
+  { label: '覆盖城市', value: animated.cities },
+  { label: '覆盖省份', value: animated.provinces },
+  { label: '平均日薪', value: '¥' + animated.salary },
 ] : []);
+function animateMetrics(target) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    Object.assign(animated, target);
+    return;
+  }
+  const start = performance.now();
+  const dur = 900;
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / dur);
+    const e = 1 - ((1 - t) ** 3);
+    animated.total = Math.round(target.total * e);
+    animated.cities = Math.round(target.cities * e);
+    animated.provinces = Math.round(target.provinces * e);
+    animated.salary = Math.round(target.salary * e);
+    if (t < 1) requestAnimationFrame(tick);
+    else Object.assign(animated, target); // 落点用原始值（避免浮点薪资被取整）
+  };
+  requestAnimationFrame(tick);
+}
 
 const layers = reactive([
   { id: 'choropleth', name: '省份岗位分级', on: true, layer: null },
@@ -92,8 +114,8 @@ const layers = reactive([
   { id: 'points', name: '聚合点', on: false, layer: null },
 ]);
 
-// 分级统计图色带图例（与 map.js 的 CHORO_COLORS 保持一致）
-const legendColors = ['#1d1f2b', '#2c2f4a', '#3d4173', '#565cc0', '#7b81e8', '#aab0f5'];
+// 分级色带图例：直接引用 map.js 的 CHORO_COLORS，保证图例与地图用同一套颜色
+const legendColors = CHORO_COLORS;
 
 const cityRankEl = ref(null);
 const skillEl = ref(null);
@@ -104,12 +126,14 @@ const coocEl = ref(null);
 const tl = ref(null);
 const curIdx = ref(0);
 const curCount = ref(0);
+const curDelta = ref(0);
 const playing = ref(false);
 let timer = null;
 let timelineApi = null;
 
 function step() {
   curCount.value = timelineApi.apply(curIdx.value);
+  curDelta.value = timelineApi.perDate?.[curIdx.value] ?? 0;
   if (curIdx.value >= timelineApi.dates.length - 1) {
     pause();
   } else {
@@ -129,6 +153,7 @@ function pause() {
 function seek(i) {
   curIdx.value = i;
   curCount.value = timelineApi.apply(i);
+  curDelta.value = timelineApi.perDate?.[i] ?? 0;
 }
 
 function darkChart(title) {
@@ -182,32 +207,38 @@ async function loadCharts() {
 
   const skillsAll = await getJson('/api/stats/skills?top=30');
   const skills = { freq: Object.fromEntries(Object.entries(skillsAll.freq).slice(0, 10)) };
-  // 极坐标条形图（圆形放射）：技能围一圈、条形向外延伸，与棒棒糖/箱线图形态区分
+  // 横向棒棒糖图：与左列城市榜同一种语言（细杆 + 圆点 + 末端数字），
+  // 极坐标圈排的 10px 斜体标签可读性太差，形式呼应比形态猎奇重要
   const pairs = Object.entries(skills.freq);
-  const maxS = Math.max(...pairs.map(([, c]) => c), 1);
   echarts.init(skillEl.value).setOption({
     ...darkChart(),
-    polar: { radius: ['18%', '68%'], center: ['50%', '52%'] },
-    angleAxis: {
+    xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { show: false }, axisLine: { show: false } },
+    yAxis: {
       type: 'category',
-      data: pairs.map(([s]) => s),
-      startAngle: 90,
-      axisLabel: { color: '#d0d6e0', fontSize: 10, margin: 8 },
-      axisLine: { lineStyle: { color: '#23252a' } },
-      axisTick: { show: false },
+      data: pairs.map(([s]) => s).reverse(),
+      axisLabel: { color: '#d0d6e0' },
+      axisLine: { show: false }, axisTick: { show: false },
     },
-    radiusAxis: { max: maxS * 1.12, axisLabel: { show: false }, axisLine: { show: false }, splitLine: { show: false } },
-    series: [{
-      type: 'bar',
-      coordinateSystem: 'polar',
-      data: pairs.map(([name, c]) => ({
-        value: c,
-        itemStyle: { color: c / maxS > 0.5 ? '#5e6ad2' : '#3a3f4b', borderRadius: 3 },
-      })),
-      roundCap: true,
-      barWidth: '48%',
-      tooltip: { formatter: (p) => `<b>${p.name}</b>：出现在 ${p.value} 条岗位要求中` },
-    }],
+    series: [
+      {
+        type: 'bar',
+        data: pairs.map(([, c]) => c).reverse(),
+        barWidth: 2,
+        itemStyle: { color: '#34343a' },
+        tooltip: { show: false },
+      },
+      {
+        type: 'scatter',
+        symbolSize: 9,
+        data: pairs.map(([, c]) => c).reverse(),
+        itemStyle: { color: '#5e6ad2' },
+        label: {
+          show: true, position: 'right', color: '#d0d6e0', fontSize: 11,
+          formatter: '{c} 条',
+        },
+        tooltip: { formatter: (p) => `<b>${p.name}</b>：出现在 ${p.value} 条岗位要求中` },
+      },
+    ],
   });
 
   const salary = await getJson('/api/stats/salary?group_by=city');
@@ -229,7 +260,8 @@ async function loadCharts() {
       type: 'boxplot',
       data: rows.map(([, b]) =>
         [b.min, b.q1, b.median, b.q3, b.max].map((v) => Math.round(v))),
-      itemStyle: { color: 'rgba(94,106,210,0.16)', borderColor: '#5e6ad2', borderWidth: 1.2 },
+      // 薪资用克制的暗金，与薰衣草的"岗位"叙事分开：钱和岗位一眼可辨
+      itemStyle: { color: 'rgba(201,162,94,0.16)', borderColor: '#c9a25e', borderWidth: 1.2 },
       boxWidth: [10, 22],
       tooltip: {
         formatter: (p) => {
@@ -253,11 +285,18 @@ function toggleLayer(opt) {
 
 onMounted(async () => {
   overview.value = await getJson('/api/stats/overview');
+  animateMetrics({
+    total: overview.value.total,
+    cities: overview.value.city_count,
+    provinces: overview.value.province_count,
+    salary: overview.value.avg_daily_salary,
+  });
   const { timeline } = await initMap(layers);
   timelineApi = timeline;
   tl.value = timeline;
   curIdx.value = timeline.dates.length - 1;
   curCount.value = timeline.total;
+  curDelta.value = timeline.perDate?.[curIdx.value] ?? 0;
   await loadCharts();
 });
 </script>
@@ -289,7 +328,7 @@ onMounted(async () => {
   flex: 1;
   display: grid;
   grid-template-columns: 300px 1fr 300px;
-  grid-template-rows: 1fr 200px;
+  grid-template-rows: 1fr 250px;
   gap: 12px;
   padding: 12px;
 }
@@ -298,13 +337,28 @@ onMounted(async () => {
 .bottom { grid-column: 1 / 4; display: grid; grid-template-columns: 1fr 1fr; }
 .half { display: flex; flex-direction: column; min-width: 0; border-left: 1px solid var(--hairline); }
 .half:first-child { border-left: none; }
-.chart { flex: 1; min-height: 0; }
-.chart.wide { height: 150px; }
+.chart { flex: 1; min-height: 0; position: relative; }
+.chart.wide { flex: 1; min-height: 0; }
+
+/* 骨架占位：图表挂载前容器为空时显示呼吸的 surface-2 色块，
+   echarts/canvas 一挂载 :empty 即失效，无需 JS 状态 */
+.chart:empty::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  animation: panel-pulse 1.6s ease-in-out infinite;
+}
+@keyframes panel-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+}
+#map:empty { background: var(--surface-1); }
 
 .map-wrap { position: relative; grid-row: 1; }
 #map { position: absolute; inset: 0; border: 1px solid var(--hairline); border-radius: var(--radius-lg); overflow: hidden; }
 
-/* 图层开关：surface-1 面板 + 中性勾选，选中态用墨色不用彩色 */
+/* 图层开关 + 图例合成一个右上工具组：地图浮层从 3 个减到 2 个 */
 .layer-switch {
   position: absolute; right: 12px; top: 12px; z-index: 10;
   padding: 10px 14px; font-size: 12px;
@@ -312,12 +366,17 @@ onMounted(async () => {
 }
 .layer-switch label { display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--ink-muted); }
 .layer-switch input { accent-color: var(--accent); }
+.legend-row { display: flex; align-items: center; gap: 4px; font-size: 11px; }
+.legend-row .lg-label { color: var(--ink-subtle); }
+.legend-row .lg-swatch { width: 16px; height: 10px; border-radius: 2px; }
+.ctl-divider { height: 1px; background: var(--hairline); margin: 2px 0; }
 
 /* 时间轴：surface-1 浮层；日期 pill 选中 = surface-2 抬升（Linear pricing-tab 语义） */
 .timeline {
   position: absolute; left: 12px; bottom: 12px; z-index: 10;
   display: flex; align-items: center; gap: 12px;
   padding: 8px 14px; font-size: 12px;
+  max-width: calc(100% - 24px);
 }
 .timeline .play {
   width: 26px; height: 26px;
@@ -326,7 +385,7 @@ onMounted(async () => {
   cursor: pointer; font-size: 11px; line-height: 1;
 }
 .timeline .play:hover { background: var(--surface-3); }
-.timeline .tl-dates { display: flex; gap: 6px; }
+.timeline .tl-dates { display: flex; gap: 6px; flex-wrap: wrap; }
 .timeline .tl-dates span {
   color: var(--ink-subtle); cursor: pointer; padding: 3px 10px;
   border-radius: 9999px; background: var(--canvas);
@@ -339,11 +398,15 @@ onMounted(async () => {
   color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums;
 }
 
-.legend {
-  position: absolute; left: 12px; top: 12px; z-index: 10;
-  display: flex; align-items: center; gap: 4px;
-  padding: 8px 12px; font-size: 11px;
+@media (max-width: 1100px) {
+  .dashboard { height: auto; }
+  .topbar { flex-wrap: wrap; height: auto; padding: 12px 24px; gap: 12px; }
+  .metrics { gap: 20px; justify-content: flex-start; }
+  .grid { grid-template-columns: 1fr; grid-template-rows: none; }
+  .left, .right, .bottom, .map-wrap { grid-column: 1; grid-row: auto; }
+  .map-wrap { height: 420px; }
+  .bottom { grid-template-columns: 1fr; }
+  .chart { height: 220px; flex: none; }
+  .chart.wide { height: 200px; flex: none; }
 }
-.legend .lg-label { color: var(--ink-subtle); }
-.legend .lg-swatch { width: 16px; height: 10px; border-radius: 2px; }
 </style>
