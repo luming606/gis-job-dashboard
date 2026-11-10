@@ -68,13 +68,13 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
       },
       {
         id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
-        paint: { 'line-color': '#4a3f2f', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 12, 2.2] },
+        paint: { 'line-color': '#5a4a34', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 12, 2.2] },
       },
       {
         id: 'building', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 13,
         paint: {
-          'fill-color': '#3d2f1f',
-          'fill-outline-color': '#4d3d28',
+          'fill-color': '#46351f',
+          'fill-outline-color': '#5d4a2e',
           'fill-opacity': 0.9,
         },
       },
@@ -84,9 +84,9 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
         filter: ['in', ['get', 'class'], ['literal', ['secondary', 'tertiary', 'minor', 'service', 'track', 'path']]],
         paint: {
           'line-color': ['match', ['get', 'class'],
-            'secondary', '#6b5b45',
-            'tertiary', '#5d4f3c',
-            '#4a3e2e'],
+            'secondary', '#8a7550',
+            'tertiary', '#75634a',
+            '#5d4c36'],
           'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 10, 1, 14, 2],
         },
       },
@@ -95,7 +95,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
         id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation',
         filter: ['==', ['get', 'class'], 'rail'],
         paint: {
-          'line-color': '#6a5a44',
+          'line-color': '#7d6c50',
           'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 10, 0.9, 14, 1.4],
           'line-dasharray': [3, 2],
         },
@@ -104,7 +104,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
         id: 'aeroway-runway', type: 'line', source: 'omt', 'source-layer': 'aeroway',
         filter: ['in', ['get', 'class'], ['literal', ['runway', 'taxiway']]],
         paint: {
-          'line-color': '#7a6a4e',
+          'line-color': '#8f7c58',
           'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1, 14, 3],
         },
       },
@@ -121,7 +121,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
       },
       {
         id: 'boundary', type: 'line', source: 'omt', 'source-layer': 'boundary',
-        paint: { 'line-color': '#4a3f30', 'line-width': 0.9, 'line-dasharray': [2, 2] },
+        paint: { 'line-color': '#5d4c36', 'line-width': 0.9, 'line-dasharray': [2, 2] },
       },
       // ---- 地名标注（分层：放大到不同级别自动浮现；中文由 MapLibre 本地字体渲染） ----
       // 山峰标注：从 z7 起以低对比小字浮现（比城市名低优先级，冲突时让位）
