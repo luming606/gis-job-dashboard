@@ -552,6 +552,7 @@ onBeforeUnmount(() => {
 
 /* 顶栏：Linear top-nav —— 画布底 + 发丝底边，无渐变无发光 */
 .topbar {
+  position: relative; z-index: 50;
   display: flex; align-items: center; gap: 24px;
   padding: 0 24px; height: 56px;
   border-bottom: 1px solid var(--hairline);
