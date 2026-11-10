@@ -5,9 +5,9 @@ import { Map, MapLibre } from '@antv/l7-maps';
 import { getJson } from './api';
 import { gcj02GeoJsonToWgs84, gcj02ToWgs84 } from './gcj02';
 
-// 分级色带：Linear 薰衣草阶梯（岗位少=深灰蓝 → 岗位多=亮薰衣草），与石墨底图同语言
+// 分级色带：暖陶土阶梯（岗位少=深褐 → 岗位多=亮暖金），与玻璃壳同语言
 // 由 App.vue 图例直接引用，保证图例与地图用同一套颜色
-export const CHORO_COLORS = ['#2a2d44', '#333760', '#41467f', '#565cc0', '#7b81e8', '#aab0f5'];
+export const CHORO_COLORS = ['#3a2318', '#5a2f1c', '#7c3f22', '#a4552c', '#cf7a44', '#f2a65e'];
 
 // 自托管矢量瓦片服务（planetiler 切片的 MBTiles 由 server/tile-server.mjs 发布）
 const TILE_SERVER = import.meta.env.VITE_TILE_SERVER ?? 'http://localhost:3112';
@@ -294,10 +294,10 @@ export async function initMap(layers) {
   try {
     const mapEl = document.getElementById('map');
     const scaleEl = document.createElement('div');
-    scaleEl.style.cssText = 'position:absolute;right:12px;bottom:12px;z-index:10;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:11px;color:#8a8f98;pointer-events:none;';
+    scaleEl.style.cssText = 'position:absolute;right:12px;bottom:12px;z-index:10;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:11px;color:#cfae9c;pointer-events:none;';
     const scaleLabel = document.createElement('div');
     const scaleLine = document.createElement('div');
-    scaleLine.style.cssText = 'height:6px;border-bottom:2px solid #d0d6e0;border-left:2px solid #d0d6e0;border-right:2px solid #d0d6e0;';
+    scaleLine.style.cssText = 'height:6px;border-bottom:2px solid #f0d9c8;border-left:2px solid #f0d9c8;border-right:2px solid #f0d9c8;';
     scaleEl.appendChild(scaleLabel);
     scaleEl.appendChild(scaleLine);
     mapEl.appendChild(scaleEl);
@@ -394,7 +394,7 @@ export async function initMap(layers) {
     const salary = s.avg_daily ? `平均日薪 ¥${s.avg_daily}` : '薪资样本不足';
     new Popup({ anchors: 'bottom' })
       .setLnglat(e.lngLat)
-      .setHTML(`<div style="font-size:13px;line-height:1.8;color:#f7f8f8;max-width:260px">
+      .setHTML(`<div style="font-size:13px;line-height:1.8;color:#fff6ef;max-width:260px">
         <b>${name}</b> · ${s.total} 条岗位 · ${salary}<br/>
         城市：${cities || '—'}<br/>
         热门技能：${skills || '—'}
@@ -408,7 +408,7 @@ export async function initMap(layers) {
     .source(flows)
     .shape('arc')
     .size(1.2)
-    .color('count', ['#3d4173', '#5e6ad2', '#aab0f5'])
+    .color('count', ['#7c3f22', '#e8905a', '#f2a65e'])
     .style({ opacity: 0.55, pickingEnabled: false });
   scene.addLayer(arc);
   layers.find((l) => l.id === 'flows').layer = arc;
@@ -432,7 +432,7 @@ export async function initMap(layers) {
       opacity: 1.0,
       pickingEnabled: false, // 不参与拾取，避免热力晕挡住省面点击
       rampColors: {
-        colors: ['rgba(94,106,210,0.0)', 'rgba(94,106,210,0.5)', 'rgba(130,143,255,0.8)', 'rgba(196,200,255,1.0)'],
+        colors: ['rgba(240,163,94,0.0)', 'rgba(240,163,94,0.5)', 'rgba(247,189,133,0.8)', 'rgba(255,222,178,1.0)'],
         positions: [0, 0.4, 0.7, 1.0],
       },
     });
@@ -453,7 +453,7 @@ export async function initMap(layers) {
     const p = e.feature?.properties || {};
     new Popup({ anchors: 'bottom' })
       .setLnglat(e.lngLat)
-      .setHTML(`<div style="font-size:13px;line-height:1.7;color:#f7f8f8;max-width:260px">
+      .setHTML(`<div style="font-size:13px;line-height:1.7;color:#fff6ef;max-width:260px">
         <b>${p.title}</b> — ${p.company}<br/>
         ${p.city} · ${p.salary_raw || '薪资面议'}<br/>
         ${(p.skills || []).join(' / ') || '无技能标签'}
@@ -461,16 +461,18 @@ export async function initMap(layers) {
       .addTo(scene);
   });
 
-  // ---- 时间线：按采集日期重放岗位"生长"过程 ----
+  // ---- 时间线：按采集日期重放岗位"生长"过程（叠加岗位类型筛选） ----
   const tl = await getJson('/api/stats/timeline');
   const dates = tl.map((t) => t.date);
+  const lastDate = dates[dates.length - 1];
+  let jobType = 'all'; // 玻璃筛选胶囊：all / campus / social / intern
+  let lastIdx = dates.length - 1;
+  const visible = (f, idx) =>
+    (jobType === 'all' || f.properties.job_type === jobType) &&
+    (f.properties.collected_date || lastDate) <= dates[idx];
   const apply = (idx) => {
-    const cutoff = dates[idx];
-    const sub = {
-      ...geojson,
-      features: geojson.features.filter(
-        (f) => (f.properties.collected_date || dates[dates.length - 1]) <= cutoff),
-    };
+    lastIdx = idx;
+    const sub = { ...geojson, features: geojson.features.filter((f) => visible(f, idx)) };
     heatmap.setData(sub);
     points.setData(sub);
     return sub.features.length;
@@ -478,10 +480,56 @@ export async function initMap(layers) {
   apply(dates.length - 1); // 初始显示全量
 
   // 每日新增：按采集日期统计（缺失日期归末日的口径与 apply 一致）
-  const lastDate = dates[dates.length - 1];
   const perDate = dates.map((d) => geojson.features.filter(
     (f) => (f.properties.collected_date || lastDate) === d).length);
+  // 当日新增（当前岗位类型下）：供筛选后顶栏"当日新增"同步
+  const delta = (idx) => geojson.features.filter(
+    (f) => (jobType === 'all' || f.properties.job_type === jobType) &&
+      (f.properties.collected_date || lastDate) === dates[idx]).length;
+  // 岗位类型筛选：重算地图 + 返回该子集的顶栏指标（数字滚动复用，不整页刷新）
+  const setJobType = (t) => {
+    jobType = t;
+    apply(lastIdx);
+    const sub = geojson.features.filter((f) => jobType === 'all' || f.properties.job_type === jobType);
+    const cities = new Set(sub.map((f) => f.properties.city)).size;
+    const provinces = new Set(sub.map((f) => f.properties.province)).size;
+    const salaries = sub.map((f) => f.properties.salary_daily).filter((v) => typeof v === 'number');
+    const salary = salaries.length ? Math.round(salaries.reduce((a, b) => a + b, 0) / salaries.length) : 0;
+    return { total: sub.length, cities, provinces, salary };
+  };
+
+  // 城市质心（命令面板"飞到城市"用；坐标已是底图用的 WGS-84）
+  const cityCentroid = {};
+  for (const f of geojson.features) {
+    const c = f.properties.city;
+    const [lng, lat] = f.geometry.coordinates;
+    if (!cityCentroid[c]) cityCentroid[c] = { lng: 0, lat: 0, n: 0 };
+    cityCentroid[c].lng += lng; cityCentroid[c].lat += lat; cityCentroid[c].n += 1;
+  }
+  for (const c of Object.keys(cityCentroid)) {
+    const o = cityCentroid[c];
+    o.lng /= o.n; o.lat /= o.n;
+  }
+  const flyToCity = (city) => {
+    const o = cityCentroid[city];
+    if (!o) return false;
+    try {
+      const m = scene.map;
+      if (m?.map?.flyTo) { m.map.flyTo({ center: [o.lng, o.lat], zoom: 7, essential: true }); return true; }
+      if (m?.flyTo) { m.flyTo({ center: [o.lng, o.lat], zoom: 7 }); return true; }
+      if (m?.setCenter) m.setCenter([o.lng, o.lat]);
+      if (m?.setZoom) m.setZoom(7);
+      return true;
+    } catch { return false; }
+  };
+  const resetView = () => {
+    try {
+      const m = scene.map;
+      if (m?.setCenter) m.setCenter([112.5, 33.5]);
+      if (m?.setZoom) m.setZoom(4.2);
+    } catch { /* 忽略 */ }
+  };
 
   scene.on('loaded', () => console.log('L7 scene loaded'));
-  return { scene, timeline: { dates, apply, total: geojson.features.length, perDate } };
+  return { scene, timeline: { dates, apply, total: geojson.features.length, perDate, delta, setJobType, flyToCity, resetView } };
 }

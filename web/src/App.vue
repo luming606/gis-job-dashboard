@@ -1,8 +1,14 @@
 <template>
-  <div class="dashboard">
+  <div class="dashboard" :class="{ focusing: focused }">
     <!-- 顶栏 -->
     <header class="topbar">
       <h1>GIS 人才求职市场看板</h1>
+      <div class="filter-capsule" ref="filterCapsuleEl" :class="{ open: filterOpen }">
+        <button class="filter-pill" @click="toggleFilterOpts">岗位类型 · {{ jobTypeLabel }} <span class="caret">▾</span></button>
+        <div class="filter-opts" v-if="filterOpen" :class="{ leaving: filterLeaving }">
+          <button v-for="o in jobTypeOpts" :key="o.value" class="opt" :class="{ active: o.value === jobType }" @click="pickJobType(o)">{{ o.label }}</button>
+        </div>
+      </div>
       <div class="metrics">
         <div class="metric" v-for="m in metrics" :key="m.label">
           <span class="value">{{ m.value }}</span>
@@ -14,15 +20,18 @@
 
     <main class="grid">
       <!-- 左列 -->
-      <section class="panel left">
-        <h3>城市/省份岗位 TOP10</h3>
+      <section class="panel left glass-spot" data-module="city" :class="{ focused: focused === 'city' }">
+        <div class="panel-head">
+          <h3>城市/省份岗位 TOP10</h3>
+          <button class="expand-btn" @click="focusModule('city')" title="放大查看">⤢</button>
+        </div>
         <div ref="cityRankEl" class="chart"></div>
       </section>
 
       <!-- 中央地图 -->
       <section class="map-wrap">
         <div id="map"></div>
-        <div class="layer-switch panel">
+        <div class="layer-switch panel glass-spot">
           <div class="legend-row">
             <span class="lg-label">岗位少</span>
             <span class="lg-swatch" v-for="(c, i) in legendColors" :key="i" :style="{ background: c }"></span>
@@ -34,45 +43,78 @@
             {{ opt.name }}
           </label>
         </div>
-        <div class="timeline panel" v-if="tl">
+        <div class="timeline panel glass-spot" v-if="tl">
           <button class="play" @click="playing ? pause() : play()">
             {{ playing ? '⏸' : '▶' }}
           </button>
-          <div class="tl-dates">
-            <span
+          <div class="seg" ref="segEl">
+            <span class="seg-glider" ref="gliderEl"></span>
+            <button
               v-for="(d, i) in tl.dates"
               :key="d"
               :class="{ active: i === curIdx }"
               @click="seek(i)"
-            >{{ d }}</span>
+            >{{ d }}</button>
           </div>
           <div class="tl-count">当日新增 {{ curDelta }} 条</div>
+        </div>
+        <div class="dock" ref="dockEl">
+          <button v-for="d in dockItems" :key="d.id" :class="{ on: d.on }" @click="d.run" :title="d.label"><span>{{ d.icon }}</span><span class="tip">{{ d.label }}</span></button>
         </div>
       </section>
 
       <!-- 右列 -->
-      <section class="panel right">
-        <h3>技能需求 TOP10</h3>
+      <section class="panel right glass-spot" data-module="skill" :class="{ focused: focused === 'skill' }">
+        <div class="panel-head">
+          <h3>技能需求 TOP10</h3>
+          <button class="expand-btn" @click="focusModule('skill')" title="放大查看">⤢</button>
+        </div>
         <div ref="skillEl" class="chart"></div>
       </section>
 
       <!-- 底栏 -->
       <section class="panel bottom">
-        <div class="half">
-          <h3>薪资日薪分布（分城市，中位数）</h3>
+        <div class="half glass-spot" data-module="salary" :class="{ focused: focused === 'salary' }">
+          <div class="panel-head">
+            <h3>薪资日薪分布（分城市，中位数）</h3>
+            <button class="expand-btn" @click="focusModule('salary')" title="放大查看">⤢</button>
+          </div>
           <div ref="salaryEl" class="chart wide"></div>
         </div>
-        <div class="half">
-          <h3>技能共现球 · 拖拽旋转 / 悬停看共现</h3>
+        <div class="half glass-spot" data-module="sphere" :class="{ focused: focused === 'sphere' }">
+          <div class="panel-head">
+            <h3>技能共现球 · 拖拽旋转 / 悬停看共现</h3>
+            <button class="expand-btn" @click="focusModule('sphere')" title="放大查看">⤢</button>
+          </div>
           <div ref="coocEl" class="chart wide"></div>
         </div>
       </section>
     </main>
+
+    <!-- 模块就地放大：其余缩为底部玻璃缩略条 -->
+    <div class="thumb-strip" v-if="focused">
+      <button v-for="m in modules" :key="m.id" class="thumb" :class="{ active: focused === m.id }" @click="focusModule(m.id)">{{ m.label }}</button>
+      <button class="thumb close" @click="focusModule(null)">✕ 收起</button>
+    </div>
+
+    <!-- 命令面板 -->
+    <div class="palette-backdrop" v-if="paletteOpen" @click.self="closePalette">
+      <div class="palette">
+        <input ref="paletteInputEl" v-model="paletteQuery" @input="onPaletteInput" @keydown.down.prevent="paletteMove(1)" @keydown.up.prevent="paletteMove(-1)" @keydown.enter.prevent="paletteEnter" @keydown.esc="closePalette" placeholder="搜索城市，或输入命令…" />
+        <div class="palette-list">
+          <div v-for="(it, i) in paletteItems" :key="it.key" class="palette-item" :class="{ sel: i === paletteSel }" @click="paletteRun(it)" @mouseenter="paletteSel = i">
+            <span v-html="it.html"></span><span class="kind">{{ it.kind }}</span>
+          </div>
+          <div v-if="!paletteItems.length" class="palette-empty">没有匹配的结果</div>
+        </div>
+        <div class="palette-hint">↑↓ 选择 · 回车跳转 · Esc 关闭 · Ctrl/⌘ K 随时唤起</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import * as echarts from 'echarts';
 import { getJson } from './api';
 import { mountSkillSphere } from './skillSphere';
@@ -117,6 +159,63 @@ const layers = reactive([
 // 分级色带图例：直接引用 map.js 的 CHORO_COLORS，保证图例与地图用同一套颜色
 const legendColors = CHORO_COLORS;
 
+// ---- 玻璃壳状态（试验分支） ----
+const jobType = ref('all');
+const jobTypeOpts = [
+  { value: 'all', label: '全部' },
+  { value: 'campus', label: '校招' },
+  { value: 'social', label: '社招' },
+  { value: 'intern', label: '实习' },
+];
+const jobTypeLabel = computed(() => jobTypeOpts.find((o) => o.value === jobType.value)?.label ?? '全部');
+const filterOpen = ref(false);
+const filterLeaving = ref(false);
+const filterCapsuleEl = ref(null);
+const focused = ref(null);
+const modules = [
+  { id: 'city', label: '城市榜' },
+  { id: 'skill', label: '技能榜' },
+  { id: 'salary', label: '薪资分布' },
+  { id: 'sphere', label: '技能共现球' },
+];
+const paletteOpen = ref(false);
+const paletteQuery = ref('');
+const paletteSel = ref(0);
+const paletteInputEl = ref(null);
+const cityList = ref([]);
+const coocDataRef = ref(null);
+const chartInstances = {};
+let unmountSphere = null;
+const segEl = ref(null);
+const gliderEl = ref(null);
+const dockEl = ref(null);
+
+const dockItems = computed(() => [
+  { id: 'reset', icon: '🗺️', label: '全国视图', on: false, run: () => timelineApi?.resetView?.() },
+  { id: 'heatmap', icon: '🔥', label: '点位热力', on: layers.find((l) => l.id === 'heatmap')?.on, run: () => toggleLayerById('heatmap') },
+  { id: 'flows', icon: '〰️', label: '流向连线', on: layers.find((l) => l.id === 'flows')?.on, run: () => toggleLayerById('flows') },
+  { id: 'points', icon: '🎯', label: '聚合点', on: layers.find((l) => l.id === 'points')?.on, run: () => toggleLayerById('points') },
+  { id: 'search', icon: '🔍', label: '搜索 (Ctrl+K)', on: false, run: () => openPalette() },
+  { id: 'play', icon: playing.value ? '⏸' : '▶', label: playing.value ? '暂停时间线' : '播放时间线', on: playing.value, run: () => { playing.value ? pause() : play(); } },
+]);
+const paletteCommands = computed(() => [
+  { key: 'cmd-play', name: playing.value ? '暂停时间线' : '播放时间线', kind: '命令', run: () => { playing.value ? pause() : play(); } },
+  { key: 'cmd-reset', name: '回到全国视图', kind: '命令', run: () => timelineApi?.resetView?.() },
+  { key: 'cmd-heat', name: '切换点位热力图层', kind: '命令', run: () => toggleLayerById('heatmap') },
+  { key: 'cmd-flows', name: '切换流向连线图层', kind: '命令', run: () => toggleLayerById('flows') },
+  { key: 'cmd-points', name: '切换聚合点图层', kind: '命令', run: () => toggleLayerById('points') },
+  { key: 'cmd-choro', name: '切换省份分级图层', kind: '命令', run: () => toggleLayerById('choropleth') },
+  { key: 'cmd-filter', name: '打开岗位类型筛选', kind: '命令', run: () => { filterOpen.value = true; } },
+]);
+const paletteItems = computed(() => {
+  const q = paletteQuery.value.trim();
+  const cities = cityList.value.map((c) => ({ key: `city-${c}`, name: c, kind: '城市', html: highlight(c, q), run: () => timelineApi?.flyToCity?.(c) }));
+  const cmds = paletteCommands.value.map((c) => ({ ...c, html: highlight(c.name, q) }));
+  const all = [...cities, ...cmds];
+  if (!q) return all;
+  return all.filter((it) => it.name.includes(q));
+});
+
 const cityRankEl = ref(null);
 const skillEl = ref(null);
 const salaryEl = ref(null);
@@ -133,7 +232,8 @@ let timelineApi = null;
 
 function step() {
   curCount.value = timelineApi.apply(curIdx.value);
-  curDelta.value = timelineApi.perDate?.[curIdx.value] ?? 0;
+  curDelta.value = timelineApi.delta ? timelineApi.delta(curIdx.value) : (timelineApi.perDate?.[curIdx.value] ?? 0);
+  moveGlider(curIdx.value);
   if (curIdx.value >= timelineApi.dates.length - 1) {
     pause();
   } else {
@@ -153,35 +253,158 @@ function pause() {
 function seek(i) {
   curIdx.value = i;
   curCount.value = timelineApi.apply(i);
-  curDelta.value = timelineApi.perDate?.[i] ?? 0;
+  curDelta.value = timelineApi.delta ? timelineApi.delta(i) : (timelineApi.perDate?.[i] ?? 0);
+  moveGlider(i);
+}
+
+// ---- 玻璃壳交互 ----
+function moveGlider(i, stretch = true) {
+  const seg = segEl.value, glider = gliderEl.value;
+  if (!seg || !glider) return;
+  const btn = seg.querySelectorAll('button')[i];
+  if (!btn) return;
+  glider.style.left = `${btn.offsetLeft}px`;
+  glider.style.width = `${btn.offsetWidth}px`;
+  if (stretch) {
+    glider.classList.add('stretch');
+    setTimeout(() => glider.classList.remove('stretch'), 200);
+  }
+}
+function toggleFilterOpts() {
+  if (filterOpen.value) closeFilterOpts();
+  else { filterOpen.value = true; filterLeaving.value = false; }
+}
+function closeFilterOpts() {
+  if (!filterOpen.value) return;
+  filterLeaving.value = true;
+  setTimeout(() => { filterOpen.value = false; filterLeaving.value = false; }, 240);
+}
+function pickJobType(o) {
+  jobType.value = o.value;
+  closeFilterOpts();
+  if (timelineApi?.setJobType) {
+    animateMetrics(timelineApi.setJobType(o.value));
+    curDelta.value = timelineApi.delta ? timelineApi.delta(curIdx.value) : curDelta.value;
+  }
+}
+function onDocClick(e) {
+  if (filterOpen.value && filterCapsuleEl.value && !filterCapsuleEl.value.contains(e.target)) closeFilterOpts();
+}
+function onKeydown(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    paletteOpen.value ? closePalette() : openPalette();
+  } else if (e.key === 'Escape' && paletteOpen.value) closePalette();
+  else if (e.key === 'Escape' && focused.value) focusModule(null);
+}
+function toggleLayerById(id) {
+  const opt = layers.find((l) => l.id === id);
+  if (!opt) return;
+  opt.on = !opt.on;
+  toggleLayer(opt);
+}
+async function focusModule(id) {
+  const wasSphere = focused.value === 'sphere';
+  document.querySelectorAll('.glass-spot').forEach((el) => { el.style.transform = ''; });
+  focused.value = id;
+  await nextTick();
+  setTimeout(() => {
+    for (const c of Object.values(chartInstances)) { try { c?.resize(); } catch { /* 忽略 */ } }
+    if (id === 'sphere' || wasSphere) remountSphere();
+  }, 320);
+}
+function remountSphere() {
+  try { unmountSphere?.(); } catch { /* 忽略 */ }
+  const el = coocEl.value;
+  if (!el || !coocDataRef.value) return;
+  unmountSphere = mountSkillSphere(el, coocDataRef.value.freq, coocDataRef.value.cooc);
+}
+function setupSpots() {
+  document.querySelectorAll('.glass-spot').forEach((el) => {
+    el.addEventListener('mousemove', (e) => {
+      const r = el.getBoundingClientRect();
+      const x = e.clientX - r.left, y = e.clientY - r.top;
+      el.style.setProperty('--mx', `${x}px`);
+      el.style.setProperty('--my', `${y}px`);
+      if (el.classList.contains('focused')) return;
+      const rx = ((x / r.width) - 0.5) * 5;
+      const ry = ((y / r.height) - 0.5) * -5;
+      el.style.transform = `perspective(900px) rotateX(${ry.toFixed(2)}deg) rotateY(${rx.toFixed(2)}deg)`;
+    });
+    el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+  });
+}
+function setupDock() {
+  const dock = dockEl.value;
+  if (!dock) return;
+  dock.addEventListener('mousemove', (e) => {
+    dock.querySelectorAll('button').forEach((b) => {
+      const r = b.getBoundingClientRect();
+      const d = Math.abs(e.clientX - (r.left + r.width / 2));
+      const s = 1 + 0.55 * Math.max(0, 1 - d / 90);
+      b.style.setProperty('--s', s.toFixed(2));
+    });
+  });
+  dock.addEventListener('mouseleave', () => {
+    dock.querySelectorAll('button').forEach((b) => b.style.setProperty('--s', 1));
+  });
+}
+function highlight(text, q) {
+  if (!q) return text;
+  const i = text.indexOf(q);
+  if (i < 0) return text;
+  return `${text.slice(0, i)}<mark>${text.slice(i, i + q.length)}</mark>${text.slice(i + q.length)}`;
+}
+function openPalette() {
+  paletteOpen.value = true;
+  paletteQuery.value = '';
+  paletteSel.value = 0;
+  nextTick(() => paletteInputEl.value?.focus());
+}
+function closePalette() { paletteOpen.value = false; }
+function onPaletteInput() { paletteSel.value = 0; }
+function paletteMove(d) {
+  const n = paletteItems.value.length;
+  if (!n) return;
+  paletteSel.value = (paletteSel.value + d + n) % n;
+}
+function paletteEnter() {
+  const it = paletteItems.value[paletteSel.value];
+  if (it) paletteRun(it);
+}
+function paletteRun(it) {
+  closePalette();
+  try { it.run?.(); } catch { /* 忽略 */ }
 }
 
 function darkChart(title) {
   return {
     backgroundColor: 'transparent',
     grid: { left: 8, right: 24, top: 8, bottom: 8, containLabel: true },
-    textStyle: { color: '#8a8f98' },
+    textStyle: { color: '#cfae9c' },
     title: { show: false },
     // Linear 风格 tooltip：深面板 + 发丝边框，全站图表共享
     tooltip: {
       trigger: 'item',
-      backgroundColor: '#141516',
-      borderColor: '#34343a',
-      textStyle: { color: '#f7f8f8', fontSize: 12 },
+      backgroundColor: 'rgba(36,22,16,0.94)',
+      borderColor: 'rgba(255,255,255,0.22)',
+      textStyle: { color: '#fff6ef', fontSize: 12 },
     },
   };
 }
 
 async function loadCharts() {
   const rank = await getJson('/api/stats/city_rank');
+  cityList.value = rank.slice(0, 15).map((r) => r.city);
   // 棒棒糖图：细杆 = 数值轴，圆点 = 数值，末端直接标注具体数字
-  echarts.init(cityRankEl.value).setOption({
+  chartInstances.city = echarts.init(cityRankEl.value);
+  chartInstances.city.setOption({
     ...darkChart(),
     xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { show: false }, axisLine: { show: false } },
     yAxis: {
       type: 'category',
       data: rank.slice(0, 10).map((r) => r.city).reverse(),
-      axisLabel: { color: '#d0d6e0' },
+      axisLabel: { color: '#f0d9c8' },
       axisLine: { show: false }, axisTick: { show: false },
     },
     series: [
@@ -189,16 +412,16 @@ async function loadCharts() {
         type: 'bar',
         data: rank.slice(0, 10).map((r) => r.count).reverse(),
         barWidth: 2,
-        itemStyle: { color: '#34343a' },
+        itemStyle: { color: 'rgba(255,255,255,0.16)' },
         tooltip: { show: false },
       },
       {
         type: 'scatter',
         symbolSize: 9,
         data: rank.slice(0, 10).map((r) => r.count).reverse(),
-        itemStyle: { color: '#5e6ad2' },
+        itemStyle: { color: '#f2a65e' },
         label: {
-          show: true, position: 'right', color: '#d0d6e0', fontSize: 11,
+          show: true, position: 'right', color: '#f0d9c8', fontSize: 11,
           formatter: '{c} 条',
         },
       },
@@ -210,13 +433,14 @@ async function loadCharts() {
   // 横向棒棒糖图：与左列城市榜同一种语言（细杆 + 圆点 + 末端数字），
   // 极坐标圈排的 10px 斜体标签可读性太差，形式呼应比形态猎奇重要
   const pairs = Object.entries(skills.freq);
-  echarts.init(skillEl.value).setOption({
+  chartInstances.skill = echarts.init(skillEl.value);
+  chartInstances.skill.setOption({
     ...darkChart(),
     xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { show: false }, axisLine: { show: false } },
     yAxis: {
       type: 'category',
       data: pairs.map(([s]) => s).reverse(),
-      axisLabel: { color: '#d0d6e0' },
+      axisLabel: { color: '#f0d9c8' },
       axisLine: { show: false }, axisTick: { show: false },
     },
     series: [
@@ -224,16 +448,16 @@ async function loadCharts() {
         type: 'bar',
         data: pairs.map(([, c]) => c).reverse(),
         barWidth: 2,
-        itemStyle: { color: '#34343a' },
+        itemStyle: { color: 'rgba(255,255,255,0.16)' },
         tooltip: { show: false },
       },
       {
         type: 'scatter',
         symbolSize: 9,
         data: pairs.map(([, c]) => c).reverse(),
-        itemStyle: { color: '#5e6ad2' },
+        itemStyle: { color: '#f2a65e' },
         label: {
-          show: true, position: 'right', color: '#d0d6e0', fontSize: 11,
+          show: true, position: 'right', color: '#f0d9c8', fontSize: 11,
           formatter: '{c} 条',
         },
         tooltip: { formatter: (p) => `<b>${p.name}</b>：出现在 ${p.value} 条岗位要求中` },
@@ -245,16 +469,17 @@ async function loadCharts() {
   const rows = Object.entries(salary)
     .filter(([, b]) => b && b.count >= 3)
     .sort((a, b) => b[1].median - a[1].median).slice(0, 12);
-  echarts.init(salaryEl.value).setOption({
+  chartInstances.salary = echarts.init(salaryEl.value);
+  chartInstances.salary.setOption({
     ...darkChart(),
     grid: { left: 8, right: 20, top: 16, bottom: 8, containLabel: true },
     xAxis: {
       type: 'category',
       data: rows.map(([c]) => c),
-      axisLabel: { color: '#8a8f98', rotate: 30 },
-      axisLine: { lineStyle: { color: '#23252a' } },
+      axisLabel: { color: '#cfae9c', rotate: 30 },
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.10)' } },
     },
-    yAxis: { type: 'value', name: '日薪(元)', nameTextStyle: { color: '#62666d' }, axisLabel: { color: '#8a8f98' }, splitLine: { lineStyle: { color: '#23252a' } } },
+    yAxis: { type: 'value', name: '日薪(元)', nameTextStyle: { color: '#a98a78' }, axisLabel: { color: '#cfae9c' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.10)' } } },
     series: [{
       name: '薪资分布',
       type: 'boxplot',
@@ -275,8 +500,8 @@ async function loadCharts() {
   // 技能共现球（自研 canvas）：拖拽旋转 / 悬停显示出现次数与常共现技能
   const coocData = skillsAll;
   const nodeSet = new Set(Object.keys(coocData.freq));
-  const unmountSphere = mountSkillSphere(coocEl.value, coocData.freq, coocData.cooc);
-  onBeforeUnmount(() => unmountSphere());
+  coocDataRef.value = coocData;
+  unmountSphere = mountSkillSphere(coocEl.value, coocData.freq, coocData.cooc);
 }
 
 function toggleLayer(opt) {
@@ -291,13 +516,25 @@ onMounted(async () => {
     provinces: overview.value.province_count,
     salary: overview.value.avg_daily_salary,
   });
-  const { timeline } = await initMap(layers);
-  timelineApi = timeline;
-  tl.value = timeline;
+  const mapResult = await initMap(layers);
+  timelineApi = mapResult.timeline;
+  tl.value = mapResult.timeline;
   curIdx.value = timeline.dates.length - 1;
   curCount.value = timeline.total;
   curDelta.value = timeline.perDate?.[curIdx.value] ?? 0;
   await loadCharts();
+  await nextTick();
+  moveGlider(curIdx.value, false);
+  setupSpots();
+  setupDock();
+  document.addEventListener('click', onDocClick);
+  document.addEventListener('keydown', onKeydown);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick);
+  document.removeEventListener('keydown', onKeydown);
+  try { unmountSphere?.(); } catch { /* 忽略 */ }
 });
 </script>
 
@@ -310,7 +547,9 @@ onMounted(async () => {
   display: flex; align-items: center; gap: 24px;
   padding: 0 24px; height: 56px;
   border-bottom: 1px solid var(--hairline);
-  background: var(--canvas);
+  background: rgba(24, 12, 6, 0.55);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 .topbar h1 {
   font-size: 15px; font-weight: 600; letter-spacing: -0.3px; color: var(--ink);
@@ -385,15 +624,7 @@ onMounted(async () => {
   cursor: pointer; font-size: 11px; line-height: 1;
 }
 .timeline .play:hover { background: var(--surface-3); }
-.timeline .tl-dates { display: flex; gap: 6px; flex-wrap: wrap; }
-.timeline .tl-dates span {
-  color: var(--ink-subtle); cursor: pointer; padding: 3px 10px;
-  border-radius: 9999px; background: var(--canvas);
-}
-.timeline .tl-dates span.active {
-  color: var(--ink); font-weight: 500;
-  background: var(--surface-2); border: 1px solid var(--hairline-strong);
-}
+/* 日期胶囊：液态滑块样式见 style.css 的 .seg */
 .timeline .tl-count {
   color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums;
 }
