@@ -20,6 +20,7 @@
 
     <main class="grid">
       <!-- 左列 -->
+      <Teleport to="body" :disabled="focused !== 'city'">
       <section class="panel left glass-spot" data-module="city" :class="{ focused: focused === 'city' }">
         <div class="panel-head">
           <h3>城市/省份岗位 TOP10</h3>
@@ -27,6 +28,7 @@
         </div>
         <div ref="cityRankEl" class="chart"></div>
       </section>
+      </Teleport>
 
       <!-- 中央地图 -->
       <section class="map-wrap">
@@ -64,6 +66,7 @@
       </section>
 
       <!-- 右列 -->
+      <Teleport to="body" :disabled="focused !== 'skill'">
       <section class="panel right glass-spot" data-module="skill" :class="{ focused: focused === 'skill' }">
         <div class="panel-head">
           <h3>技能需求 TOP10</h3>
@@ -71,9 +74,11 @@
         </div>
         <div ref="skillEl" class="chart"></div>
       </section>
+      </Teleport>
 
       <!-- 底栏 -->
       <section class="panel bottom">
+        <Teleport to="body" :disabled="focused !== 'salary'">
         <div class="half glass-spot" data-module="salary" :class="{ focused: focused === 'salary' }">
           <div class="panel-head">
             <h3>薪资日薪分布（分城市，中位数）</h3>
@@ -81,6 +86,8 @@
           </div>
           <div ref="salaryEl" class="chart wide"></div>
         </div>
+        </Teleport>
+        <Teleport to="body" :disabled="focused !== 'sphere'">
         <div class="half glass-spot" data-module="sphere" :class="{ focused: focused === 'sphere' }">
           <div class="panel-head">
             <h3>技能共现球 · 拖拽旋转 / 悬停看共现</h3>
@@ -88,6 +95,7 @@
           </div>
           <div ref="coocEl" class="chart wide"></div>
         </div>
+        </Teleport>
       </section>
     </main>
 
@@ -519,9 +527,9 @@ onMounted(async () => {
   const mapResult = await initMap(layers);
   timelineApi = mapResult.timeline;
   tl.value = mapResult.timeline;
-  curIdx.value = timeline.dates.length - 1;
-  curCount.value = timeline.total;
-  curDelta.value = timeline.perDate?.[curIdx.value] ?? 0;
+  curIdx.value = timelineApi.dates.length - 1;
+  curCount.value = timelineApi.total;
+  curDelta.value = timelineApi.perDate?.[curIdx.value] ?? 0;
   await loadCharts();
   await nextTick();
   moveGlider(curIdx.value, false);
