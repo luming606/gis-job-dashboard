@@ -357,13 +357,13 @@ export async function initMap(layers) {
   scene.addLayer(choropleth);
   layers.find((l) => l.id === 'choropleth').layer = choropleth;
 
-  // 分级图随缩放淡出：全国视角（z≤6）是全强度分级语义；进入城市级（z≥9）后
-  // 整屏同色的省级蒙层既无信息量又会盖住底图细节（街区/水系/路网），故线性淡出到 0。
+  // 分级图随缩放淡出：全国视角（z≤6）是全强度分级语义；进入城市级（z≥7，命令面板
+  // 飞城市即落到 z7）后整屏同色的省级蒙层既无信息量又会盖住底图细节（街区/水系/路网），故线性淡出到 0。
   // 仅当透明度实际变化时才更新样式（zoom 事件高频触发，避免无谓的 L7 样式重建）。
   const CHORO_FULL = 0.5;
   let lastChoroOp = null;
   const applyChoroFade = (zoom) => {
-    const op = zoom <= 6 ? CHORO_FULL : zoom >= 9 ? 0 : (CHORO_FULL * (9 - zoom)) / 3;
+    const op = zoom <= 6 ? CHORO_FULL : zoom >= 7 ? 0 : CHORO_FULL * (7 - zoom);
     if (lastChoroOp !== null && Math.abs(op - lastChoroOp) < 0.08) return;
     lastChoroOp = op;
     try {
