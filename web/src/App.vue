@@ -611,9 +611,10 @@ onBeforeUnmount(() => {
 .ctl-divider { height: 1px; background: var(--hairline); margin: var(--space-1) 0; }
 
 /* 时间轴：surface-1 浮层；日期 pill 选中 = surface-2 抬升（Linear pricing-tab 语义） */
+/* 时间轴：纵向三行（播放 / 日期胶囊 / 当日新增），行左边缘对齐 */
 .timeline {
   position: absolute; left: 12px; bottom: 12px; z-index: 10;
-  display: flex; align-items: center; gap: var(--space-3);
+  display: flex; align-items: flex-start; gap: var(--space-3);
   padding: var(--space-2) var(--space-4); font-size: 12px;
   max-width: calc(100% - 24px);
 }
