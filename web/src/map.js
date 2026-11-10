@@ -12,12 +12,12 @@ export const CHORO_COLORS = ['#3a2318', '#5a2f1c', '#7c3f22', '#a4552c', '#cf7a4
 // 自托管矢量瓦片服务（planetiler 切片的 MBTiles 由 server/tile-server.mjs 发布）
 const TILE_SERVER = import.meta.env.VITE_TILE_SERVER ?? 'http://localhost:3112';
 
-// 深色 OpenMapTiles 主题（石墨中性 + Linear 语汇）。
+// 暖色 OpenMapTiles 主题（暖陶土深色，比石墨底提亮一档，与玻璃壳同语言）。
 // tiles/glyphs/maxzoom 参数化：全栈模式走瓦片服务，静态部署走烘焙瓦片（server/export-static-tiles.mjs）
 function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
   return {
     version: 8,
-    name: 'gisjobs-dark',
+    name: 'gisjobs-warm',
     // 规范要求：使用文字图层必须声明 glyphs。中文由本地字体渲染，此处仅满足校验。
     glyphs,
     sources: {
@@ -30,18 +30,18 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
       },
     },
     layers: [
-      { id: 'bg', type: 'background', paint: { 'background-color': '#0a0b0d' } },
-      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#111a27' } },
+      { id: 'bg', type: 'background', paint: { 'background-color': '#251a11' } },
+      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#33291c' } },
       // ---- 土地类型：石墨基调 + 可辨识色相区分（v9 提亮一档，街区/林草可见但不抢数据层） ----
       {
         id: 'landcover', type: 'fill', source: 'omt', 'source-layer': 'landcover',
         paint: {
           'fill-color': ['match', ['get', 'class'],
-            'wood', '#131c15',
-            'grass', '#162016',
-            'sand', '#1f1d16',
-            'ice', '#161c26',
-            '#131c15'],
+            'wood', '#2b2417',
+            'grass', '#2e2a1a',
+            'sand', '#3a2f1e',
+            'ice', '#2a2a26',
+            '#2b2417'],
           'fill-opacity': 0.9,
         },
       },
@@ -49,32 +49,32 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
         id: 'landuse', type: 'fill', source: 'omt', 'source-layer': 'landuse',
         paint: {
           'fill-color': ['match', ['get', 'class'],
-            'residential', '#1a1d24',
-            ['industrial', 'railway', 'airport'], '#1f232d',
-            ['commercial', 'retail', 'school', 'hospital'], '#252a37',
-            '#1a1d24'],
+            'residential', '#2e2318',
+            ['industrial', 'railway', 'airport'], '#332719',
+            ['commercial', 'retail', 'school', 'hospital'], '#3a2c1e',
+            '#2e2318'],
           'fill-opacity': 0.9,
         },
       },
       {
         id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park',
-        paint: { 'fill-color': '#16261a', 'fill-opacity': 0.9 },
+        paint: { 'fill-color': '#2c2f1d', 'fill-opacity': 0.9 },
       },
       // 机场停机坪（面）：与工业用地同档但稍亮，城市级可见机场轮廓
       {
         id: 'aeroway-apron', type: 'fill', source: 'omt', 'source-layer': 'aeroway',
         filter: ['==', ['get', 'class'], 'apron'],
-        paint: { 'fill-color': '#21262f', 'fill-opacity': 0.9 },
+        paint: { 'fill-color': '#352a1c', 'fill-opacity': 0.9 },
       },
       {
         id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
-        paint: { 'line-color': '#1b2530', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 12, 2.2] },
+        paint: { 'line-color': '#4a3f2f', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 12, 2.2] },
       },
       {
         id: 'building', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 13,
         paint: {
-          'fill-color': '#252932',
-          'fill-outline-color': '#31363f',
+          'fill-color': '#3d2f1f',
+          'fill-outline-color': '#4d3d28',
           'fill-opacity': 0.9,
         },
       },
@@ -84,9 +84,9 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
         filter: ['in', ['get', 'class'], ['literal', ['secondary', 'tertiary', 'minor', 'service', 'track', 'path']]],
         paint: {
           'line-color': ['match', ['get', 'class'],
-            'secondary', '#4c535d',
-            'tertiary', '#3f4550',
-            '#33383f'],
+            'secondary', '#6b5b45',
+            'tertiary', '#5d4f3c',
+            '#4a3e2e'],
           'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 10, 1, 14, 2],
         },
       },
@@ -95,7 +95,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
         id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation',
         filter: ['==', ['get', 'class'], 'rail'],
         paint: {
-          'line-color': '#4a5262',
+          'line-color': '#6a5a44',
           'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 10, 0.9, 14, 1.4],
           'line-dasharray': [3, 2],
         },
@@ -104,7 +104,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
         id: 'aeroway-runway', type: 'line', source: 'omt', 'source-layer': 'aeroway',
         filter: ['in', ['get', 'class'], ['literal', ['runway', 'taxiway']]],
         paint: {
-          'line-color': '#59626f',
+          'line-color': '#7a6a4e',
           'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1, 14, 3],
         },
       },
@@ -113,15 +113,15 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
         filter: ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary']]],
         paint: {
           'line-color': ['match', ['get', 'class'],
-            'motorway', '#98a2b3',
-            'trunk', '#7b8494',
-            '#5f6774'],
+            'motorway', '#c9a876',
+            'trunk', '#a8895e',
+            '#8a6f4a'],
           'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.8, 7, 1.6, 10, 2.6, 14, 4.4],
         },
       },
       {
         id: 'boundary', type: 'line', source: 'omt', 'source-layer': 'boundary',
-        paint: { 'line-color': '#2a2d33', 'line-width': 0.9, 'line-dasharray': [2, 2] },
+        paint: { 'line-color': '#4a3f30', 'line-width': 0.9, 'line-dasharray': [2, 2] },
       },
       // ---- 地名标注（分层：放大到不同级别自动浮现；中文由 MapLibre 本地字体渲染） ----
       // 山峰标注：从 z7 起以低对比小字浮现（比城市名低优先级，冲突时让位）
@@ -133,7 +133,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
           'text-font': ['Noto Sans Regular'],
           'text-size': 10,
         },
-        paint: { 'text-color': '#79808d', 'text-halo-color': '#050607', 'text-halo-width': 1 },
+        paint: { 'text-color': '#b09a7c', 'text-halo-color': '#1a120a', 'text-halo-width': 1 },
       },
       // 机场名（小字，与跑道配合）
       {
@@ -144,7 +144,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
           'text-font': ['Noto Sans Regular'],
           'text-size': 11,
         },
-        paint: { 'text-color': '#8f97a5', 'text-halo-color': '#050607', 'text-halo-width': 1.2 },
+        paint: { 'text-color': '#c0a888', 'text-halo-color': '#1a120a', 'text-halo-width': 1.2 },
       },
       {
         id: 'label-province', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -156,7 +156,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
           'text-size': ['interpolate', ['linear'], ['zoom'], 3, 12, 8, 16],
           'text-letter-spacing': 0.15,
         },
-        paint: { 'text-color': '#c8cdd6', 'text-halo-color': '#050607', 'text-halo-width': 1.8 },
+        paint: { 'text-color': '#e8d5bd', 'text-halo-color': '#1a120a', 'text-halo-width': 1.8 },
       },
       {
         id: 'label-city-major', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -167,7 +167,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
           'text-font': ['Noto Sans Regular'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 18],
         },
-        paint: { 'text-color': '#e9ecf1', 'text-halo-color': '#050607', 'text-halo-width': 2 },
+        paint: { 'text-color': '#f7ead6', 'text-halo-color': '#1a120a', 'text-halo-width': 2 },
       },
       {
         id: 'label-city-town', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -178,7 +178,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
           'text-font': ['Noto Sans Regular'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 8, 12, 12, 16],
         },
-        paint: { 'text-color': '#c8cdd6', 'text-halo-color': '#050607', 'text-halo-width': 1.6 },
+        paint: { 'text-color': '#e8d5bd', 'text-halo-color': '#1a120a', 'text-halo-width': 1.6 },
       },
       // 道路名（沿路排布，z10 起浮现）：补齐"完整地图"观感的关键一层
       {
@@ -192,7 +192,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
           'symbol-placement': 'line',
           'text-rotation-alignment': 'map',
         },
-        paint: { 'text-color': '#7c8595', 'text-halo-color': '#0a0b0d', 'text-halo-width': 1.2 },
+        paint: { 'text-color': '#a08a6a', 'text-halo-color': '#251a11', 'text-halo-width': 1.2 },
       },
       {
         id: 'label-district', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -203,7 +203,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
           'text-font': ['Noto Sans Regular'],
           'text-size': 12,
         },
-        paint: { 'text-color': '#9aa1ab', 'text-halo-color': '#050607', 'text-halo-width': 1.4 },
+        paint: { 'text-color': '#b5a184', 'text-halo-color': '#1a120a', 'text-halo-width': 1.4 },
       },
     ],
   };
@@ -287,7 +287,7 @@ export async function initMap(layers) {
       // 中文地名用浏览器本地字体现场生成 SDF，无需字形服务器（MapLibre 专为 CJK 设计的能力）
       localIdeographFontFamily: "'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif",
     })
-    : new Map({ center: [112.5, 33.5], zoom: 4.2, style: { background: '#0b1026' } });
+    : new Map({ center: [112.5, 33.5], zoom: 4.2, style: { background: '#251a11' } });
   const scene = new Scene({ id: 'map', map: mapEngine, logoVisible: false });
 
   // ---- 自定义比例尺：不依赖底层引擎控件，MapLibre / L7 内置两种引擎都能用 ----
@@ -340,7 +340,7 @@ export async function initMap(layers) {
     const maskLayer = new PolygonLayer({ zIndex: 0.5 })
       .source(buildChinaMaskSource(gcj02GeoJsonToWgs84(bounds)))
       .shape('fill')
-      .color('#030304')
+      .color('#1a120a')
       .style({ opacity: 1, pickingEnabled: false });
     scene.addLayer(maskLayer);
   }
