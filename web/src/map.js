@@ -31,7 +31,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
     },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': '#251a11' } },
-      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#33291c' } },
+      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#232c33' } },
       // ---- 土地类型：石墨基调 + 可辨识色相区分（v9 提亮一档，街区/林草可见但不抢数据层） ----
       {
         id: 'landcover', type: 'fill', source: 'omt', 'source-layer': 'landcover',
@@ -68,7 +68,7 @@ function omtDarkStyle({ tiles, glyphs, maxzoom = 14 }) {
       },
       {
         id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
-        paint: { 'line-color': '#5a4a34', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 12, 2.2] },
+        paint: { 'line-color': '#3a4a52', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 12, 2.2] },
       },
       {
         id: 'building', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 13,
