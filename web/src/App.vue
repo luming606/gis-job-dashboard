@@ -4,7 +4,7 @@
     <header class="topbar">
       <h1>GIS 人才求职市场看板</h1>
       <div class="filter-capsule" ref="filterCapsuleEl" :class="{ open: filterOpen }">
-        <button class="filter-pill" @click="toggleFilterOpts">岗位类型 · {{ jobTypeLabel }} <span class="caret">▾</span></button>
+        <button class="filter-pill" @click="toggleFilterOpts">岗位类型 · {{ jobTypeLabel }} <span class="caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></button>
         <div class="filter-opts" v-if="filterOpen" :class="{ leaving: filterLeaving }">
           <button v-for="o in jobTypeOpts" :key="o.value" class="opt" :class="{ active: o.value === jobType }" @click="pickJobType(o)">{{ o.label }}</button>
         </div>
@@ -24,7 +24,7 @@
       <section class="panel left glass-spot" data-module="city" :class="{ focused: focused === 'city' }">
         <div class="panel-head">
           <h3>城市/省份岗位 TOP10</h3>
-          <button class="expand-btn" @click="focusModule('city')" title="放大查看">⤢</button>
+          <button class="expand-btn" @click="focusModule('city')" title="放大查看"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
         </div>
         <div ref="cityRankEl" class="chart"></div>
       </section>
@@ -46,8 +46,9 @@
           </label>
         </div>
         <div class="timeline panel glass-spot" v-if="tl">
-          <button class="play" @click="playing ? pause() : play()">
-            {{ playing ? '⏸' : '▶' }}
+          <button class="play" @click="playing ? pause() : play()" :title="playing ? '暂停时间线' : '播放时间线'">
+            <span v-if="playing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5v14"/><path d="M15 5v14"/></svg></span>
+            <span v-else><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5 19 12 7 19.5z"/></svg></span>
           </button>
           <div class="seg" ref="segEl">
             <span class="seg-glider" ref="gliderEl"></span>
@@ -61,7 +62,7 @@
           <div class="tl-count">当日新增 {{ curDelta }} 条</div>
         </div>
         <div class="dock" ref="dockEl">
-          <button v-for="d in dockItems" :key="d.id" :class="{ on: d.on }" @click="d.run" :title="d.label"><span>{{ d.icon }}</span><span class="tip">{{ d.label }}</span></button>
+          <button v-for="d in dockItems" :key="d.id" :class="{ on: d.on }" @click="d.run" :title="d.label"><span class="ic" v-html="iconSvg(d.icon)"></span><span class="tip">{{ d.label }}</span></button>
         </div>
       </section>
 
@@ -70,7 +71,7 @@
       <section class="panel right glass-spot" data-module="skill" :class="{ focused: focused === 'skill' }">
         <div class="panel-head">
           <h3>技能需求 TOP10</h3>
-          <button class="expand-btn" @click="focusModule('skill')" title="放大查看">⤢</button>
+          <button class="expand-btn" @click="focusModule('skill')" title="放大查看"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
         </div>
         <div ref="skillEl" class="chart"></div>
       </section>
@@ -82,7 +83,7 @@
         <div class="half glass-spot" data-module="salary" :class="{ focused: focused === 'salary' }">
           <div class="panel-head">
             <h3>薪资日薪分布（分城市，中位数）</h3>
-            <button class="expand-btn" @click="focusModule('salary')" title="放大查看">⤢</button>
+            <button class="expand-btn" @click="focusModule('salary')" title="放大查看"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
           </div>
           <div ref="salaryEl" class="chart wide"></div>
         </div>
@@ -91,7 +92,7 @@
         <div class="half glass-spot" data-module="sphere" :class="{ focused: focused === 'sphere' }">
           <div class="panel-head">
             <h3>技能共现球 · 拖拽旋转 / 悬停看共现</h3>
-            <button class="expand-btn" @click="focusModule('sphere')" title="放大查看">⤢</button>
+            <button class="expand-btn" @click="focusModule('sphere')" title="放大查看"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
           </div>
           <div ref="coocEl" class="chart wide"></div>
         </div>
@@ -102,7 +103,7 @@
     <!-- 模块就地放大：其余缩为底部玻璃缩略条 -->
     <div class="thumb-strip" v-if="focused">
       <button v-for="m in modules" :key="m.id" class="thumb" :class="{ active: focused === m.id }" @click="focusModule(m.id)">{{ m.label }}</button>
-      <button class="thumb close" @click="focusModule(null)">✕ 收起</button>
+      <button class="thumb close" @click="focusModule(null)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg> 收起</button>
     </div>
 
     <!-- 命令面板 -->
@@ -197,14 +198,25 @@ let unmountSphere = null;
 const segEl = ref(null);
 const gliderEl = ref(null);
 const dockEl = ref(null);
+// 统一线性图标：24 视图、1.75 描边、圆角端点，颜色继承按钮 currentColor
+const ICONS = {
+  map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14"/><path d="M15 6v14"/></svg>',
+  flame: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
+  route: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M12 19h4.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H12"/></svg>',
+  target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5 19 12 7 19.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5v14"/><path d="M15 5v14"/></svg>',
+};
+function iconSvg(name) { return ICONS[name] || ''; }
 
 const dockItems = computed(() => [
-  { id: 'reset', icon: '🗺️', label: '全国视图', on: false, run: () => timelineApi?.resetView?.() },
-  { id: 'heatmap', icon: '🔥', label: '点位热力', on: layers.find((l) => l.id === 'heatmap')?.on, run: () => toggleLayerById('heatmap') },
-  { id: 'flows', icon: '〰️', label: '流向连线', on: layers.find((l) => l.id === 'flows')?.on, run: () => toggleLayerById('flows') },
-  { id: 'points', icon: '🎯', label: '聚合点', on: layers.find((l) => l.id === 'points')?.on, run: () => toggleLayerById('points') },
-  { id: 'search', icon: '🔍', label: '搜索 (Ctrl+K)', on: false, run: () => openPalette() },
-  { id: 'play', icon: playing.value ? '⏸' : '▶', label: playing.value ? '暂停时间线' : '播放时间线', on: playing.value, run: () => { playing.value ? pause() : play(); } },
+  { id: 'reset', icon: 'map', label: '全国视图', on: false, run: () => timelineApi?.resetView?.() },
+  { id: 'heatmap', icon: 'flame', label: '点位热力', on: layers.find((l) => l.id === 'heatmap')?.on, run: () => toggleLayerById('heatmap') },
+  { id: 'flows', icon: 'route', label: '流向连线', on: layers.find((l) => l.id === 'flows')?.on, run: () => toggleLayerById('flows') },
+  { id: 'points', icon: 'target', label: '聚合点', on: layers.find((l) => l.id === 'points')?.on, run: () => toggleLayerById('points') },
+  { id: 'search', icon: 'search', label: '搜索 (Ctrl+K)', on: false, run: () => openPalette() },
+  { id: 'play', icon: playing.value ? 'pause' : 'play', label: playing.value ? '暂停时间线' : '播放时间线', on: playing.value, run: () => { playing.value ? pause() : play(); } },
 ]);
 const paletteCommands = computed(() => [
   { key: 'cmd-play', name: playing.value ? '暂停时间线' : '播放时间线', kind: '命令', run: () => { playing.value ? pause() : play(); } },
@@ -328,33 +340,13 @@ function remountSphere() {
   unmountSphere = mountSkillSphere(el, coocDataRef.value.freq, coocDataRef.value.cooc);
 }
 function setupSpots() {
+  // 仅更新光斑位置（已收敛：光斑很淡，无 3D 倾斜）
   document.querySelectorAll('.glass-spot').forEach((el) => {
     el.addEventListener('mousemove', (e) => {
       const r = el.getBoundingClientRect();
-      const x = e.clientX - r.left, y = e.clientY - r.top;
-      el.style.setProperty('--mx', `${x}px`);
-      el.style.setProperty('--my', `${y}px`);
-      if (el.classList.contains('focused')) return;
-      const rx = ((x / r.width) - 0.5) * 5;
-      const ry = ((y / r.height) - 0.5) * -5;
-      el.style.transform = `perspective(900px) rotateX(${ry.toFixed(2)}deg) rotateY(${rx.toFixed(2)}deg)`;
+      el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+      el.style.setProperty('--my', `${e.clientY - r.top}px`);
     });
-    el.addEventListener('mouseleave', () => { el.style.transform = ''; });
-  });
-}
-function setupDock() {
-  const dock = dockEl.value;
-  if (!dock) return;
-  dock.addEventListener('mousemove', (e) => {
-    dock.querySelectorAll('button').forEach((b) => {
-      const r = b.getBoundingClientRect();
-      const d = Math.abs(e.clientX - (r.left + r.width / 2));
-      const s = 1 + 0.55 * Math.max(0, 1 - d / 90);
-      b.style.setProperty('--s', s.toFixed(2));
-    });
-  });
-  dock.addEventListener('mouseleave', () => {
-    dock.querySelectorAll('button').forEach((b) => b.style.setProperty('--s', 1));
   });
 }
 function highlight(text, q) {
@@ -389,7 +381,7 @@ function darkChart(title) {
   return {
     backgroundColor: 'transparent',
     grid: { left: 8, right: 24, top: 8, bottom: 8, containLabel: true },
-    textStyle: { color: '#cfae9c' },
+    textStyle: { color: '#cfae9c', fontFamily: "'Inter', -apple-system, 'Segoe UI', system-ui, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif" },
     title: { show: false },
     // Linear 风格 tooltip：深面板 + 发丝边框，全站图表共享
     tooltip: {
@@ -534,7 +526,6 @@ onMounted(async () => {
   await nextTick();
   moveGlider(curIdx.value, false);
   setupSpots();
-  setupDock();
   document.addEventListener('click', onDocClick);
   document.addEventListener('keydown', onKeydown);
 });
@@ -553,8 +544,8 @@ onBeforeUnmount(() => {
 /* 顶栏：Linear top-nav —— 画布底 + 发丝底边，无渐变无发光 */
 .topbar {
   position: relative; z-index: 50;
-  display: flex; align-items: center; gap: 24px;
-  padding: 0 24px; height: 56px;
+  display: flex; align-items: center; gap: var(--space-6);
+  padding: 0 var(--space-6); height: 56px;
   border-bottom: 1px solid var(--hairline);
   background: rgba(24, 12, 6, 0.55);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -563,7 +554,7 @@ onBeforeUnmount(() => {
 .topbar h1 {
   font-size: 15px; font-weight: 600; letter-spacing: -0.3px; color: var(--ink);
 }
-.metrics { display: flex; gap: 32px; flex: 1; justify-content: center; }
+.metrics { display: flex; gap: var(--space-8); flex: 1; justify-content: flex-start; }
 .metric { display: flex; flex-direction: column; align-items: flex-start; }
 .metric .value {
   font-size: 18px; font-weight: 600; color: var(--ink);
@@ -577,8 +568,8 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 300px 1fr 300px;
   grid-template-rows: 1fr 250px;
-  gap: 12px;
-  padding: 12px;
+  gap: var(--space-3);
+  padding: var(--space-3);
 }
 .left { grid-row: 1; }
 .right { grid-row: 1; }
@@ -609,29 +600,31 @@ onBeforeUnmount(() => {
 /* 图层开关 + 图例合成一个右上工具组：地图浮层从 3 个减到 2 个 */
 .layer-switch {
   position: absolute; right: 12px; top: 12px; z-index: 10;
-  padding: 10px 14px; font-size: 12px;
-  display: flex; flex-direction: column; gap: 6px;
+  padding: var(--space-3) var(--space-4); font-size: 12px;
+  display: flex; flex-direction: column; gap: var(--space-2);
 }
 .layer-switch label { display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--ink-muted); }
 .layer-switch input { accent-color: var(--accent); }
-.legend-row { display: flex; align-items: center; gap: 4px; font-size: 11px; }
+.legend-row { display: flex; align-items: center; gap: var(--space-1); font-size: 11px; }
 .legend-row .lg-label { color: var(--ink-subtle); }
 .legend-row .lg-swatch { width: 16px; height: 10px; border-radius: 2px; }
-.ctl-divider { height: 1px; background: var(--hairline); margin: 2px 0; }
+.ctl-divider { height: 1px; background: var(--hairline); margin: var(--space-1) 0; }
 
 /* 时间轴：surface-1 浮层；日期 pill 选中 = surface-2 抬升（Linear pricing-tab 语义） */
 .timeline {
   position: absolute; left: 12px; bottom: 12px; z-index: 10;
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 14px; font-size: 12px;
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4); font-size: 12px;
   max-width: calc(100% - 24px);
 }
 .timeline .play {
   width: 26px; height: 26px;
-  border: 1px solid var(--hairline-strong); border-radius: var(--radius-md);
+  border: 1px solid var(--hairline-strong); border-radius: var(--radius-sm);
   background: var(--surface-2); color: var(--ink);
-  cursor: pointer; font-size: 11px; line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
 }
+.timeline .play svg { width: 11px; height: 11px; display: block; }
 .timeline .play:hover { background: var(--surface-3); }
 /* 日期胶囊：液态滑块样式见 style.css 的 .seg */
 .timeline .tl-count {
@@ -640,8 +633,8 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1100px) {
   .dashboard { height: auto; }
-  .topbar { flex-wrap: wrap; height: auto; padding: 12px 24px; gap: 12px; }
-  .metrics { gap: 20px; justify-content: flex-start; }
+  .topbar { flex-wrap: wrap; height: auto; padding: var(--space-3) var(--space-6); gap: var(--space-3); }
+  .metrics { gap: var(--space-5); justify-content: flex-start; }
   .grid { grid-template-columns: 1fr; grid-template-rows: none; }
   .left, .right, .bottom, .map-wrap { grid-column: 1; grid-row: auto; }
   .map-wrap { height: 420px; }
