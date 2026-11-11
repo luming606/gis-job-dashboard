@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>全国县域高速可达性 — 哪些县上高速最难</title>
+<link rel="stylesheet" href="vendor/maplibre-gl.css" />
+<link rel="stylesheet" href="vendor/inter-index.css" />
+<link rel="stylesheet" href="vendor/inter-500.css" />
+<link rel="stylesheet" href="vendor/inter-600.css" />
+<link rel="stylesheet" href="vendor/inter-700.css" />
+<style>
+  /* ---- 设计变量（固定档位） ---- */
+  :root{
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s7:32px;
+    --r1:8px; --r2:12px; --r3:16px; --r4:20px; --r-cap:999px;
+    --ink:#f7ead6; --ink-2:#e8d5bd; --muted:#d6bf9f; --faint:#c2ab93;
+    --accent:#f2a65e; --accent-2:#e8803c;
+    --card:rgba(43,30,18,.78); --card-dark:rgba(30,20,12,.86);
+    --card-border:rgba(255,255,255,.16);
+    --chip:rgba(240,217,200,.08);
+    --spring:cubic-bezier(.34,1.4,.64,1);
+    --ease-out:cubic-bezier(.16,1,.3,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{font-family:Inter,system-ui,'PingFang SC','Microsoft YaHei',sans-serif;background:#251a11;color:var(--ink)}
+  #map{position:fixed;inset:0}
+  /* 暖陶色模糊渐变：罩在地图上，边缘暖化 */
+  #warm-vignette{position:fixed;inset:0;z-index:2;pointer-events:none;
+    background:
+      radial-gradient(120% 90% at 50% 0%, rgba(214,144,84,.10), transparent 55%),
+      radial-gradient(120% 100% at 50% 115%, rgba(20,12,6,.55), transparent 60%),
+      linear-gradient(180deg, rgba(37,26,17,.28), transparent 18%, transparent 82%, rgba(20,12,6,.34));}
+  /* ---- 磨砂卡片：半透明 + 细白描边 + 大圆角 ---- */
+  .glass{position:relative;background:var(--card);border:1px solid var(--card-border);
+    border-radius:var(--r4);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    box-shadow:0 8px 32px rgba(0,0,0,.35);transition:border-color .2s var(--ease-out), box-shadow .2s var(--ease-out), transform .2s var(--ease-out), opacity .25s var(--ease-out)}
+  .glass:hover{border-color:rgba(255,255,255,.28)}
+  /* 悬停微动：卡片上浮 2px（taste-skill：不倾斜），光斑与边框提亮随鼠标走 */
+  .panel.glass:hover{transform:translateY(-2px)}
+  /* 键盘焦点环（ui-ux-pro-max 优先级 1：无障碍） */
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button:focus-visible, input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* 浏览器表面也走同一套配色（impeccable craft floor） */
+  ::selection{background:rgba(242,166,94,.35);color:var(--ink)}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:rgba(240,217,200,.22);border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(240,217,200,.36)}
+  ::-webkit-scrollbar-track{background:transparent}
+  .glass-light{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;
+    transition:opacity .25s;
+    background:radial-gradient(180px circle at var(--mx,50%) var(--my,50%), rgba(242,166,94,.13), transparent 70%)}
+  .glass:hover .glass-light{opacity:1}
+  .panel{position:fixed;z-index:10;padding:var(--s4) var(--s5)}
+  .panel h2{font-size:13px;font-weight:600}
+  /* 标题上方留白多于下方（impeccable craft floor） */
+  #panel-legend h2{margin-bottom:var(--s2)}
+  #panel-boards h2{margin:var(--s4) 0 var(--s2)}
+  #panel-boards h2:first-child{margin-top:0}
+  /* 面板右上角的展开按钮：圆形图标按钮（与停靠栏同一套语言） */
+  .panel-expand{position:absolute;top:var(--s3);right:var(--s3);width:36px;height:36px;border-radius:50%;
+    border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;padding:0;
+    transition:background .15s var(--ease-out), color .15s var(--ease-out), transform .15s var(--ease-out)}
+  .panel-expand:hover{color:var(--ink);background:var(--chip);border-color:var(--card-border)}
+  .panel-expand:active{transform:scale(.94)}
+  .panel-expand svg{width:16px;height:16px}
+  /* ---- 左上：标题卡（深色卡压画面） ---- */
+  #panel-title{top:var(--s4);left:var(--s4);width:360px;background:var(--card-dark)}
+  #panel-title h1{font-size:20px;font-weight:700;letter-spacing:.02em;line-height:1.3}
+  #panel-title .sub{margin-top:var(--s1);font-size:12px;color:var(--muted);line-height:1.5}
+  /* 指标：一个主数 + 三个支撑数（impeccable：不用四个等大的 hero-metric 模板） */
+  .stats{margin-top:var(--s4)}
+  .stat.primary .v{font-size:28px;font-weight:700;color:var(--accent);line-height:1.15;font-variant-numeric:tabular-nums}
+  .stat.primary .v small{font-size:13px;font-weight:500;color:var(--muted)}
+  .stat.primary .k{margin-top:2px;font-size:12px;color:var(--muted)}
+  .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--s3);margin-top:var(--s3);
+    padding-top:var(--s3);border-top:1px solid rgba(255,255,255,.08)}
+  .stats-row .stat .v{font-size:16px;font-weight:600;color:var(--ink);line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .stats-row .stat .v small{font-size:12px;font-weight:500;color:var(--muted)}
+  .stats-row .stat .k{margin-top:2px;font-size:12px;color:var(--muted)}
+  /* 加载骨架（impeccable Operate：骨架而非转圈） */
+  .stats.loading .v{color:transparent !important;border-radius:6px;min-height:1.2em;
+    background:linear-gradient(90deg, rgba(240,217,200,.16), rgba(240,217,200,.06));
+    background-size:200% 100%;animation:shimmer 1.2s linear infinite}
+  .stats.loading .v small{visibility:hidden}
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  /* ---- 右上：图例卡 ---- */
+  /* 图例卡层级高于榜单卡：分裂下拉浮层向下展开时会越过图例卡底边，不能被榜单卡盖住 */
+  #panel-legend{top:var(--s4);right:var(--s4);width:288px;z-index:16}
+  #legend-rows{position:relative}
+  .legend-row{position:relative;display:flex;align-items:center;gap:var(--s2);font-size:13px;color:var(--ink-2);
+    padding:8px var(--s2);cursor:pointer;border-radius:var(--r1);z-index:1;
+    transition:background .15s var(--ease-out), color .15s var(--ease-out)}
+  .legend-row .sw{width:14px;height:14px;border-radius:4px;flex:none}
+  .legend-row .n{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+  .legend-row.active .lbl{color:var(--accent);font-weight:600}
+  /* 液态高亮胶囊：在图例行之间滑动 */
+  #legend-capsule{position:absolute;left:0;right:0;height:28px;border-radius:var(--r1);z-index:0;
+    background:rgba(242,166,94,.14);border:1px solid rgba(242,166,94,.30);
+    transition:top .4s var(--spring), height .4s var(--spring);
+    pointer-events:none}
+  #legend-capsule.stretch{animation:capsule-stretch .4s var(--spring)}
+  @keyframes capsule-stretch{0%{transform:scaleX(1)}35%{transform:scaleX(1.06)}100%{transform:scaleX(1)}}
+  /* 水滴分裂筛选：单个胶囊，点开液态分列 */
+  #band-split{position:relative;margin-top:var(--s3)}
+  #band-split-btn{width:100%;display:flex;align-items:center;gap:var(--s2);padding:9px var(--s3);
+    border-radius:var(--r-cap);border:1px solid var(--card-border);background:var(--chip);
+    color:var(--ink);font-size:13px;font-family:inherit;cursor:pointer;text-align:left;
+    transition:border-color .15s var(--ease-out), background .15s var(--ease-out)}
+  #band-split-btn:hover{border-color:rgba(255,255,255,.32)}
+  #band-split-btn .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  #band-split-btn .cnt{margin-left:auto;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+  #band-split-btn svg{width:14px;height:14px;color:var(--muted);transition:transform .2s var(--ease-out);flex:none}
+  #band-split.open #band-split-btn svg{transform:rotate(180deg)}
+  /* 水滴分裂筛选：选项以下拉浮层展开（不推挤布局，不做高度动画；ui-ux-pro-max：不动 width/height） */
+  #band-split-options{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;
+    display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:var(--r3);
+    background:var(--card);border:1px solid var(--card-border);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    box-shadow:0 12px 32px rgba(0,0,0,.45);
+    opacity:0;visibility:hidden;transform:scaleY(.96) translateY(-4px);transform-origin:top center;
+    transition:opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility .2s}
+  #band-split.open #band-split-options{opacity:1;visibility:visible;transform:none}
+  .band-opt{display:flex;align-items:center;gap:var(--s2);min-height:44px;padding:8px var(--s3);border-radius:var(--r2);
+    border:1px solid transparent;background:transparent;color:var(--ink-2);font-size:13px;
+    font-family:inherit;cursor:pointer;text-align:left;transition:background .15s var(--ease-out)}
+  .band-opt:hover{background:var(--chip)}
+  .band-opt .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .band-opt .cnt{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+  .band-opt.sel{background:rgba(242,166,94,.14);border-color:rgba(242,166,94,.30);color:var(--ink)}
+  #search{width:100%;margin-top:var(--s3);padding:9px var(--s3);border-radius:var(--r2);border:1px solid var(--card-border);
+    background:rgba(0,0,0,.25);color:var(--ink);font-size:13px;font-family:inherit;outline:none;
+    transition:border-color .15s var(--ease-out)}
+  #search::placeholder{color:var(--faint)}
+  #search:focus{border-color:var(--accent)}
+  #suggest{position:absolute;left:var(--s5);right:var(--s5);top:100%;margin-top:6px;border-radius:var(--r2);overflow:hidden;
+    display:none;max-height:220px;overflow-y:auto;z-index:30}
+  #suggest div{padding:9px var(--s3);font-size:13px;color:var(--ink-2);cursor:pointer;
+    transition:background .15s var(--ease-out), color .15s var(--ease-out)}
+  #suggest div:hover{background:rgba(240,217,200,.1);color:var(--ink)}
+  #suggest div small{color:var(--muted);margin-left:6px}
+  /* ---- 右下：榜单卡 ---- */
+  #panel-boards{right:var(--s4);bottom:var(--s4);width:320px;max-height:56vh;overflow-y:auto;padding:var(--s4) var(--s5)}
+  .board-row{display:flex;align-items:baseline;gap:var(--s2);padding:5px 0;font-size:12px;cursor:pointer;
+    border-radius:6px;color:var(--ink-2);transition:background .15s var(--ease-out)}
+  .board-row:hover{background:rgba(240,217,200,.06)}
+  .board-row .rank{width:18px;text-align:right;color:var(--faint);font-variant-numeric:tabular-nums;flex:none}
+  .board-row .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .board-row .val{margin-left:auto;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums;flex:none}
+  .board-note{font-size:12px;color:var(--faint);margin:2px 0 10px;line-height:1.5}
+  /* ---- 左下：口径卡 ---- */
+  #panel-method{left:var(--s4);bottom:var(--s4);max-width:360px;font-size:12px;line-height:1.7;color:var(--muted);padding:var(--s3) var(--s4)}
+  #panel-method b{color:var(--ink-2);font-weight:600}
+  /* ---- 悬停提示 ---- */
+  #tooltip{position:fixed;z-index:20;pointer-events:none;padding:10px var(--s3);font-size:12px;line-height:1.7;
+    display:none;max-width:240px}
+  #tooltip .t-name{font-size:13px;font-weight:700;color:var(--ink)}
+  #tooltip .t-name small{color:var(--muted);font-weight:400}
+  #tooltip .t-dist{color:var(--accent);font-weight:700;font-size:14px}
+  /* ---- 点击详情卡 ---- */
+  #detail{left:50%;bottom:var(--s4);transform:translateX(-50%);z-index:15;width:420px;max-width:calc(100vw - 32px);
+    padding:var(--s4) var(--s5);display:none}
+  #detail .d-head{display:flex;align-items:baseline;gap:var(--s2)}
+  #detail .d-head h3{font-size:16px;font-weight:700}
+  #detail .d-head .d-prov{font-size:12px;color:var(--muted)}
+  #detail .d-close{margin-left:auto;border:none;background:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1}
+  #detail .d-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--s3);margin-top:var(--s3)}
+  #detail .d-grid .v{font-size:17px;font-weight:700;color:var(--accent)}
+  #detail .d-grid .k{font-size:12px;color:var(--muted);margin-top:2px}
+  #detail .d-note{margin-top:10px;font-size:12px;color:var(--faint);line-height:1.6}
+  /* ---- 模块就地放大：其余面板缩为底部玻璃缩略条 ---- */
+  body.focusing .panel:not(.focused):not(#detail):not(#tooltip){opacity:0;transform:scale(.92);pointer-events:none}
+  .panel.focused{box-shadow:0 16px 48px rgba(0,0,0,.5);z-index:14}
+  #panel-title.focused{width:420px}
+  #panel-legend.focused{width:340px}
+  #panel-boards.focused{max-height:72vh;width:360px}
+  #focus-strip{position:fixed;left:50%;bottom:84px;transform:translateX(-50%) translateY(8px);z-index:13;
+    display:none;gap:var(--s2);padding:var(--s2);border-radius:var(--r-cap);align-items:center}
+  body.focusing #focus-strip{display:flex}
+  #focus-strip .fs-label{font-size:11px;color:var(--muted);padding:0 var(--s2);white-space:nowrap}
+  .fs-pill{display:flex;align-items:center;gap:6px;padding:7px var(--s3);border-radius:var(--r-cap);
+    border:1px solid var(--card-border);background:var(--chip);color:var(--ink-2);font-size:12px;
+    font-family:inherit;cursor:pointer;white-space:nowrap;
+    transition:background .15s var(--ease-out), color .15s var(--ease-out), border-color .15s var(--ease-out)}
+  .fs-pill:hover{color:var(--ink);border-color:rgba(255,255,255,.32)}
+  .fs-pill svg{width:13px;height:13px}
+  /* ---- 玻璃停靠栏：底部居中，只放图标 ---- */
+  #dock{position:fixed;left:50%;bottom:var(--s4);transform:translateX(-50%);z-index:12;
+    display:flex;align-items:center;gap:2px;padding:6px;border-radius:var(--r-cap)}
+  .dock-btn{position:relative;width:44px;height:44px;border-radius:50%;border:1px solid transparent;
+    background:transparent;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:transform .2s var(--ease-out), background .15s var(--ease-out), color .15s var(--ease-out)}
+  .dock-btn svg{width:20px;height:20px}
+  .dock-btn:hover{color:var(--ink);background:var(--chip)}
+  .dock-btn:active{transform:scale(.94)}
+  .dock-btn.hov{transform:scale(1.16)}
+  .dock-btn.near{transform:scale(1.07)}
+  .dock-btn.on{color:var(--accent)}
+  /* 停靠栏液态胶囊：跟随当前项 */
+  #dock-capsule{position:absolute;top:6px;bottom:6px;width:44px;border-radius:50%;z-index:-1;
+    background:rgba(242,166,94,.14);border:1px solid rgba(242,166,94,.30);
+    transition:left .4s var(--spring), opacity .25s var(--ease-out);opacity:0;pointer-events:none}
+  #dock-capsule.stretch{animation:capsule-stretch .4s var(--spring)}
+  #dock-label{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%) translateY(4px);
+    padding:6px var(--s3);border-radius:var(--r-cap);font-size:12px;color:var(--ink);white-space:nowrap;
+    opacity:0;pointer-events:none;transition:opacity .2s var(--ease-out), transform .2s var(--ease-out)}
+  #dock-label.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  /* ---- 命令面板 ---- */
+  #palette-backdrop{position:fixed;inset:0;z-index:40;background:rgba(10,6,3,.55);
+    backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:none}
+  #palette{position:fixed;left:50%;top:16vh;transform:translateX(-50%) translateY(-8px);z-index:41;
+    width:520px;max-width:calc(100vw - 32px);padding:var(--s2);opacity:0;pointer-events:none;
+    transition:opacity .2s var(--ease-out), transform .2s var(--ease-out)}
+  #palette.open{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+  #palette-backdrop.open{display:block}
+  #palette-input{width:100%;padding:12px var(--s4);border-radius:var(--r3);border:1px solid var(--card-border);
+    background:rgba(0,0,0,.28);color:var(--ink);font-size:15px;font-family:inherit;outline:none}
+  #palette-input::placeholder{color:var(--faint)}
+  #palette-input:focus{border-color:var(--accent)}
+  #palette-hint{padding:8px var(--s3) 4px;font-size:12px;color:var(--faint)}
+  #palette-hint kbd{border:1px solid var(--card-border);border-radius:4px;padding:0 5px;font-family:inherit;
+    background:var(--chip);color:var(--muted);font-size:10px}
+  #palette-list{max-height:320px;overflow-y:auto;margin-top:4px}
+  .pal-item{display:flex;align-items:baseline;gap:var(--s2);min-height:44px;padding:9px var(--s3);border-radius:var(--r2);
+    font-size:13px;color:var(--ink-2);cursor:pointer;transition:background .15s var(--ease-out), color .15s var(--ease-out)}
+  .pal-item.sel{background:rgba(242,166,94,.14);color:var(--ink)}
+  .pal-item .p-kind{font-size:12px;color:var(--faint);flex:none;width:44px}
+  .pal-item .p-val{margin-left:auto;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums;flex:none}
+  .pal-item mark{background:transparent;color:var(--accent);font-weight:700}
+  .maplibregl-ctrl-attrib{font-size:10px}
+  /* 署名不被面板盖住：桌面端放榜单卡左侧的底边空隙，手机端抬到停靠栏上方 */
+  @media (min-width:769px){
+    .maplibregl-ctrl-bottom-right{right:352px}
+  }
+  @media (max-width:768px){
+    #panel-title{left:12px;right:12px;top:12px;width:auto;padding:var(--s3) var(--s4)}
+    .maplibregl-ctrl-bottom-right{bottom:76px}
+    #panel-title h1{font-size:17px}
+    #panel-title .sub{display:none}
+    .stats-row{grid-template-columns:repeat(3,1fr);gap:var(--s2)}
+    .stat.primary .v{font-size:24px}
+    #panel-legend,#panel-boards{display:none}
+    #panel-legend.open,#panel-boards.open{display:block;left:12px;right:12px;width:auto;top:118px;bottom:auto;max-height:60vh}
+    #panel-method{display:none}
+    #detail{bottom:76px}
+    #dock{bottom:12px}
+    #focus-strip{bottom:64px;max-width:calc(100vw - 24px);overflow-x:auto}
+    #palette{top:10vh}
+  }
+  @media (hover:none){
+    .glass-light{display:none}
+  }
+  /* 减弱动效：一切静止，不留隐藏内容（taste-skill / ui-ux-pro-max） */
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+    .glass-light{display:none}
+    .panel.glass:hover{transform:none}
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="warm-vignette"></div>
+
+<div id="panel-title" class="panel glass" data-panel="title">
+  <div class="glass-light"></div>
+  <button class="panel-expand" data-expand="title" title="放大" aria-label="放大标题卡"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
+  <h1>全国县域高速可达性</h1>
+  <div class="sub">哪些县上高速最难 · 2874 个县级单位</div>
+  <div class="stats loading" id="stats">
+    <div class="stat primary"><div class="v" id="stat-mean">—</div><div class="k">县均到高速距离</div></div>
+    <div class="stats-row">
+      <div class="stat"><div class="v" id="stat-median">—</div><div class="k">中位距离</div></div>
+      <div class="stat"><div class="v" id="stat-band1">—</div><div class="k">10 公里内的县</div></div>
+      <div class="stat"><div class="v" id="stat-band4">—</div><div class="k">50 公里以上的县</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="panel-legend" class="panel glass" data-panel="legend">
+  <div class="glass-light"></div>
+  <button class="panel-expand" data-expand="legend" title="放大" aria-label="放大图例卡"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
+  <h2>县城到最近高速</h2>
+  <div id="legend-rows"><div id="legend-capsule"></div></div>
+  <div id="band-split">
+    <button id="band-split-btn"><span class="dot" style="background:#8a6f4a"></span><span id="band-split-label">全部 · 2874 县</span><span class="cnt" id="band-split-cnt"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+    <div id="band-split-options"></div>
+  </div>
+  <input id="search" type="text" placeholder="搜县名，如 荣成 / 康定" autocomplete="off" />
+  <div id="suggest" class="glass"></div>
+</div>
+
+<div id="panel-boards" class="panel glass" data-panel="boards">
+  <div class="glass-light"></div>
+  <button class="panel-expand" data-expand="boards" title="放大" aria-label="放大榜单卡"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
+  <h2>上高速最远的 10 个县</h2>
+  <div class="board-note">不含南海海岛区县（南沙、西沙无陆路，单独标注）</div>
+  <div id="board-far"></div>
+  <h2>县内高速密度最高</h2>
+  <div class="board-note">面积 50 km² 以上；高速里程按双向车道线计，仅用于县际比较</div>
+  <div id="board-dense"></div>
+</div>
+
+<div id="panel-method" class="panel glass">
+  <div class="glass-light"></div>
+  <b>口径：</b>直线距离，非驾车距离与时间；“到高速线”非“到高速口”。高速里程按分离式双向车道线计，密度仅用于县际比较。数据：OSM 路网（Geofabrik 中国，2026-11-10）· 区县边界 DataV GeoAtlas · 底图 OpenMapTiles。计算：Albers 等面积投影。
+</div>
+
+<div id="tooltip" class="glass"></div>
+
+<div id="detail" class="panel glass">
+  <div class="d-head">
+    <h3 id="d-name">—</h3><span class="d-prov" id="d-prov"></span>
+    <button class="d-close" id="d-close" aria-label="关闭">×</button>
+  </div>
+  <div class="d-grid">
+    <div><div class="v" id="d-dist">—</div><div class="k">县城到最近高速</div></div>
+    <div><div class="v" id="d-mw">—</div><div class="k">县内高速里程</div></div>
+    <div><div class="v" id="d-road">—</div><div class="k">县内全路网密度</div></div>
+  </div>
+  <div class="d-note" id="d-note"></div>
+</div>
+
+<div id="focus-strip" class="glass"><span class="fs-label">已收起</span></div>
+
+<nav id="dock" class="glass" aria-label="快捷操作">
+  <div class="glass-light"></div>
+  <div id="dock-capsule"></div>
+  <button class="dock-btn" data-dock="reset" title="重置视图" aria-label="重置视图"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
+  <button class="dock-btn" data-dock="palette" title="命令面板" aria-label="命令面板"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button>
+  <button class="dock-btn" data-dock="legend" title="图例" aria-label="图例"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></button>
+  <button class="dock-btn" data-dock="boards" title="榜单" aria-label="榜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+  <button class="dock-btn" data-dock="method" title="口径" aria-label="口径"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+  <div id="dock-label" class="glass"></div>
+</nav>
+
+<div id="palette-backdrop"></div>
+<div id="palette" class="glass" role="dialog" aria-label="命令面板">
+  <div class="glass-light"></div>
+  <input id="palette-input" type="text" placeholder="搜县名，或输入命令：重置视图 / 只看困难县" autocomplete="off" />
+  <div id="palette-hint"><kbd>↑</kbd> <kbd>↓</kbd> 选择 · <kbd>Enter</kbd> 跳转 · <kbd>Esc</kbd> 关闭 · <kbd>Ctrl K</kbd> 唤起</div>
+  <div id="palette-list"></div>
+</div>
+
+<script src="vendor/maplibre-gl.js"></script>
+<script>
+const BANDS = [
+  { id: 1, label: '<10 km · 通达', short: '通达', color: '#4a3220' },
+  { id: 2, label: '10–30 km', short: '10–30 km', color: '#7a4526' },
+  { id: 3, label: '30–50 km', short: '30–50 km', color: '#b45a28' },
+  { id: 4, label: '>50 km · 困难', short: '困难', color: '#e8803c' },
+];
+const BAND_LABEL = { 1: '通达（<10 km）', 2: '10–30 km', 3: '30–50 km', 4: '困难（>50 km）' };
+// 瓦片 URL 必须是绝对路径：MapLibre 在 Worker 里用 new Request() 拉瓦片，相对路径解析失败。
+// 不能用 new URL() 拼（会把 {z}/{x}/{y} 编码成 %7B%7D 破坏占位符），用字符串拼接。
+// 独立仓库：默认用本站自带的 static-tiles，不再依赖 gis-job-dashboard。
+const _base = location.href.split('?')[0].replace(/[^/]*$/, '');
+const TILES = new URLSearchParams(location.search).get('tiles') === 'local'
+  ? _base + 'tiles/{z}/{x}/{y}.pbf'
+  : _base + 'static-tiles/{z}/{x}/{y}.pbf';
+
+function warmStyle() {
+  return {
+    version: 8, name: 'highway-warm',
+    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    sources: { omt: { type: 'vector', tiles: [TILES], minzoom: 0, maxzoom: 9,
+      attribution: '© OpenStreetMap contributors' } },
+    layers: [
+      { id: 'bg', type: 'background', paint: { 'background-color': '#251a11' } },
+      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water',
+        paint: { 'fill-color': '#232c33' } },
+      { id: 'landcover', type: 'fill', source: 'omt', 'source-layer': 'landcover',
+        paint: { 'fill-color': ['match', ['get', 'class'], 'wood', '#2b2417', 'grass', '#2e2a1a',
+          'sand', '#3a2f1e', 'ice', '#2a2a26', '#2b2417'], 'fill-opacity': 0.9 } },
+      { id: 'landuse', type: 'fill', source: 'omt', 'source-layer': 'landuse',
+        paint: { 'fill-color': ['match', ['get', 'class'], 'residential', '#2e2318',
+          ['industrial', 'railway', 'airport'], '#332719',
+          ['commercial', 'retail', 'school', 'hospital'], '#3a2c1e', '#2e2318'], 'fill-opacity': 0.9 } },
+      { id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park',
+        paint: { 'fill-color': '#2c2f1d', 'fill-opacity': 0.9 } },
+      { id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
+        paint: { 'line-color': '#3a4a52',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 12, 2.2] } },
+      { id: 'road-minor', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['in', ['get', 'class'], ['literal', ['secondary', 'tertiary', 'minor', 'service', 'track', 'path']]],
+        paint: { 'line-color': ['match', ['get', 'class'], 'secondary', '#8a7550', 'tertiary', '#75634a', '#5d4c36'],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 10, 1, 14, 2] } },
+      { id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['==', ['get', 'class'], 'rail'],
+        paint: { 'line-color': '#7d6c50',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 10, 0.9, 14, 1.4],
+          'line-dasharray': [3, 2] } },
+      { id: 'road-major', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary']]],
+        paint: { 'line-color': ['match', ['get', 'class'], 'motorway', '#c9a876', 'trunk', '#a8895e', '#8a6f4a'],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.8, 7, 1.6, 10, 2.6, 14, 4.4] } },
+      { id: 'boundary', type: 'line', source: 'omt', 'source-layer': 'boundary',
+        paint: { 'line-color': '#5d4c36', 'line-width': 0.9, 'line-dasharray': [2, 2] } },
+      { id: 'label-province', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['in', ['get', 'class'], ['literal', ['state', 'province']]], minzoom: 3,
+        layout: { 'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 3, 12, 8, 16], 'text-letter-spacing': 0.15 },
+        paint: { 'text-color': '#e8d5bd', 'text-halo-color': '#1a120a', 'text-halo-width': 1.8 } },
+      { id: 'label-city-major', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['all', ['==', ['get', 'class'], 'city'], ['<=', ['get', 'rank'], 8]], minzoom: 5,
+        layout: { 'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 18] },
+        paint: { 'text-color': '#f7ead6', 'text-halo-color': '#1a120a', 'text-halo-width': 2 } },
+      { id: 'label-city-town', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['in', ['get', 'class'], ['literal', ['city', 'town']]], minzoom: 8,
+        layout: { 'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 8, 12, 12, 16] },
+        paint: { 'text-color': '#e8d5bd', 'text-halo-color': '#1a120a', 'text-halo-width': 1.6 } },
+      { id: 'label-peak', type: 'symbol', source: 'omt', 'source-layer': 'mountain_peak', minzoom: 7,
+        layout: { 'text-field': ['coalesce', ['get', 'name:zh'], ['get', 'name']],
+          'text-font': ['Noto Sans Regular'], 'text-size': 10 },
+        paint: { 'text-color': '#b09a7c', 'text-halo-color': '#1a120a', 'text-halo-width': 1 } },
+    ],
+  };
+}
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: warmStyle(),
+  center: [104.5, 36.5],
+  zoom: 4.0,
+  minZoom: 3.5,
+  maxZoom: 9,
+  localIdeographFontFamily: "'Microsoft YaHei','PingFang SC','Noto Sans CJK SC',sans-serif",
+  attributionControl: { compact: true },
+});
+window.__map = map;
+
+let rows = [], byAdcode = {}, activeBand = 0, hoverAdcode = null, boundsGeo = null;
+
+function fmt(n, d = 1) { return Number(n).toFixed(d); }
+function median(a) { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; }
+
+/* ---- 数字滚动（不整页刷新） ---- */
+function rollNumber(el, to, suffix, decimals = 1) {
+  const from = parseFloat(el.dataset.v || '0');
+  const start = performance.now(), dur = 600;
+  function tick(t) {
+    const p = Math.min((t - start) / dur, 1);
+    const e = 1 - Math.pow(1 - p, 3);
+    const v = from + (to - from) * e;
+    el.innerHTML = fmt(v, decimals) + (suffix || '');
+    if (p < 1) requestAnimationFrame(tick);
+    else el.dataset.v = String(to);
+  }
+  requestAnimationFrame(tick);
+}
+function renderStats(subset) {
+  const list = subset || rows;
+  if (!list.length) return;
+  document.getElementById('stats').classList.remove('loading');
+  const dists = list.map(r => r.dist_motorway_km);
+  const mean = dists.reduce((a, b) => a + b, 0) / dists.length;
+  const b1 = list.filter(r => r.band === 1).length;
+  const b4 = list.filter(r => r.band === 4).length;
+  rollNumber(document.getElementById('stat-mean'), mean, ' <small>km</small>');
+  rollNumber(document.getElementById('stat-median'), median(dists), ' <small>km</small>');
+  rollNumber(document.getElementById('stat-band1'), b1 / list.length * 100, ' <small>%</small>');
+  rollNumber(document.getElementById('stat-band4'), b4, ' <small>县</small>', 0);
+}
+
+/* ---- 图例 + 液态高亮胶囊 ---- */
+function buildLegend(counts) {
+  const wrap = document.getElementById('legend-rows');
+  wrap.querySelectorAll('.legend-row').forEach(n => n.remove());
+  BANDS.forEach(b => {
+    const row = document.createElement('div');
+    row.className = 'legend-row' + (activeBand === b.id ? ' active' : '');
+    row.dataset.band = b.id;
+    row.innerHTML = `<span class="sw" style="background:${b.color}"></span>
+      <span class="lbl">${b.label}</span><span class="n">${counts[b.id] || 0} 县</span>`;
+    row.onclick = () => setBand(activeBand === b.id ? 0 : b.id);
+    wrap.appendChild(row);
+  });
+  moveLegendCapsule();
+}
+function moveLegendCapsule() {
+  const cap = document.getElementById('legend-capsule');
+  const active = document.querySelector('.legend-row.active');
+  if (!active) { cap.style.opacity = '0'; return; }
+  cap.style.opacity = '1';
+  cap.style.top = active.offsetTop + 'px';
+  cap.style.height = active.offsetHeight + 'px';
+  cap.classList.remove('stretch');
+  void cap.offsetWidth;
+  cap.classList.add('stretch');
+}
+
+/* ---- 水滴分裂筛选 ---- */
+function buildSplitOptions(counts) {
+  const box = document.getElementById('band-split-options');
+  box.innerHTML = '';
+  const opts = [{ id: 0, label: '全部', color: '#8a6f4a', n: rows.length },
+    ...BANDS.map(b => ({ id: b.id, label: b.label, color: b.color, n: counts[b.id] || 0 }))];
+  opts.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'band-opt' + (activeBand === o.id ? ' sel' : '');
+    b.innerHTML = `<span class="dot" style="background:${o.color}"></span><span>${o.label}</span><span class="cnt">${o.n} 县</span>`;
+    b.onclick = () => { setBand(o.id); closeSplit(); };
+    box.appendChild(b);
+  });
+}
+function syncSplitBtn(counts) {
+  const btn = document.getElementById('band-split-btn');
+  const dot = btn.querySelector('.dot');
+  const label = document.getElementById('band-split-label');
+  const cnt = document.getElementById('band-split-cnt');
+  if (activeBand === 0) {
+    dot.style.background = '#8a6f4a';
+    label.textContent = '全部 · 2874 县';
+    cnt.textContent = '';
+  } else {
+    const b = BANDS.find(x => x.id === activeBand);
+    dot.style.background = b.color;
+    label.textContent = b.label;
+    cnt.textContent = (counts[activeBand] || 0) + ' 县';
+  }
+}
+function openSplit() { document.getElementById('band-split').classList.add('open'); }
+function closeSplit() { document.getElementById('band-split').classList.remove('open'); }
+document.getElementById('band-split-btn').onclick = (e) => {
+  e.stopPropagation();
+  const el = document.getElementById('band-split');
+  el.classList.contains('open') ? closeSplit() : openSplit();
+};
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#band-split')) closeSplit();
+});
+
+function setBand(id) {
+  activeBand = id;
+  const f = id === 0 ? null : ['==', ['get', 'band'], id];
+  if (map.getLayer('county-fill')) map.setFilter('county-fill', f);
+  if (map.getLayer('county-line')) map.setFilter('county-line', f);
+  const counts = {};
+  rows.forEach(r => { counts[r.band] = (counts[r.band] || 0) + 1; });
+  buildLegend(counts);
+  buildSplitOptions(counts);
+  syncSplitBtn(counts);
+  renderStats(id === 0 ? rows : rows.filter(r => r.band === id));
+  moveDockCapsule();
+}
+
+/* ---- 飞到县 + 详情卡 ---- */
+function flyToCounty(r) {
+  if (!r) return;
+  map.flyTo({ center: r.center, zoom: 7, essential: true });
+  showDetail(r);
+  highlightCounty(r.adcode);
+}
+function highlightCounty(adcode) {
+  hoverAdcode = adcode;
+  if (!map.getLayer('county-hover-line')) return;
+  const f = ['==', ['get', 'adcode'], String(adcode)];
+  map.setFilter('county-hover-line', f);
+  map.setFilter('county-hover-fill', f);
+}
+function showDetail(r) {
+  document.getElementById('d-name').textContent = r.name;
+  document.getElementById('d-prov').textContent = r.province + (r.city ? ' · ' + r.city : '');
+  document.getElementById('d-dist').textContent = fmt(r.dist_motorway_km) + ' km';
+  document.getElementById('d-mw').textContent = fmt(r.motorway_km) + ' km';
+  document.getElementById('d-road').textContent = fmt(r.road_density) + ' /100km²';
+  const note = r.is_island
+    ? '海岛县，无陆路连接，最近高速为直线距离，单独标注。'
+    : `分档：${BAND_LABEL[r.band]} · 县域面积 ${fmt(r.area_km2)} km²`;
+  document.getElementById('d-note').textContent = note;
+  document.getElementById('detail').style.display = 'block';
+}
+document.getElementById('d-close').onclick = () => {
+  document.getElementById('detail').style.display = 'none';
+  highlightCounty(null);
+};
+
+function boardRow(rank, name, prov, val, r) {
+  const d = document.createElement('div');
+  d.className = 'board-row';
+  d.innerHTML = `<span class="rank">${rank}</span><span class="name">${prov}${name}</span><span class="val">${val}</span>`;
+  d.onclick = () => flyToCounty(r);
+  return d;
+}
+
+/* ---- 光随鼠标（taste-skill：不倾斜；卡片上浮 2px 在 CSS 里） ---- */
+const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
+if (finePointer) {
+  document.querySelectorAll('.glass').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    });
+  });
+}
+
+/* ---- 模块就地放大 ---- */
+const PANEL_NAMES = { title: '标题', legend: '图例', boards: '榜单' };
+const PANEL_ICONS = {
+  title: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/></svg>',
+  legend: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
+  boards: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+};
+let focusedPanel = null;
+function focusPanel(name) {
+  focusedPanel = name;
+  document.body.classList.add('focusing');
+  document.querySelectorAll('.panel[data-panel]').forEach(p => {
+    p.classList.toggle('focused', p.dataset.panel === name);
+    p.style.transform = '';
+  });
+  const strip = document.getElementById('focus-strip');
+  strip.querySelectorAll('.fs-pill').forEach(n => n.remove());
+  Object.keys(PANEL_NAMES).filter(k => k !== name).forEach(k => {
+    const pill = document.createElement('button');
+    pill.className = 'fs-pill';
+    pill.innerHTML = PANEL_ICONS[k] + PANEL_NAMES[k];
+    pill.onclick = () => focusPanel(k);
+    strip.appendChild(pill);
+  });
+  const exit = document.createElement('button');
+  exit.className = 'fs-pill';
+  exit.textContent = '收回';
+  exit.onclick = exitFocus;
+  strip.appendChild(exit);
+}
+function exitFocus() {
+  focusedPanel = null;
+  document.body.classList.remove('focusing');
+  document.querySelectorAll('.panel[data-panel]').forEach(p => p.classList.remove('focused'));
+}
+document.querySelectorAll('[data-expand]').forEach(btn => {
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const name = btn.dataset.expand;
+    focusedPanel === name ? exitFocus() : focusPanel(name);
+  };
+});
+
+/* ---- 玻璃停靠栏 ---- */
+const dockBtns = [...document.querySelectorAll('.dock-btn')];
+const dockLabel = document.getElementById('dock-label');
+const dockNames = { reset: '重置视图', palette: '命令面板', legend: '图例', boards: '榜单', method: '口径' };
+dockBtns.forEach((btn, i) => {
+  btn.addEventListener('mouseenter', () => {
+    dockBtns.forEach(b => b.classList.remove('hov', 'near'));
+    btn.classList.add('hov');
+    if (dockBtns[i - 1]) dockBtns[i - 1].classList.add('near');
+    if (dockBtns[i + 1]) dockBtns[i + 1].classList.add('near');
+    dockLabel.textContent = dockNames[btn.dataset.dock] || '';
+    dockLabel.classList.add('show');
+  });
+  btn.addEventListener('mouseleave', () => {
+    dockBtns.forEach(b => b.classList.remove('hov', 'near'));
+    dockLabel.classList.remove('show');
+  });
+});
+function moveDockCapsule() {
+  const cap = document.getElementById('dock-capsule');
+  const on = dockBtns.find(b => b.classList.contains('on'));
+  if (!on) { cap.style.opacity = '0'; return; }
+  cap.style.opacity = '1';
+  cap.style.left = (on.offsetLeft) + 'px';
+  cap.classList.remove('stretch');
+  void cap.offsetWidth;
+  cap.classList.add('stretch');
+}
+function setDockOn(name, on) {
+  const btn = dockBtns.find(b => b.dataset.dock === name);
+  if (btn) btn.classList.toggle('on', on);
+  moveDockCapsule();
+}
+function togglePanelMobile(id) {
+  const el = document.getElementById(id);
+  const open = el.classList.toggle('open');
+  if (id === 'panel-legend') document.getElementById('panel-boards').classList.remove('open');
+  if (id === 'panel-boards') document.getElementById('panel-legend').classList.remove('open');
+  return open;
+}
+dockBtns.forEach(btn => {
+  btn.onclick = () => {
+    const k = btn.dataset.dock;
+    if (k === 'reset') {
+      map.flyTo({ center: [104.5, 36.5], zoom: 4.0, essential: true });
+      document.getElementById('detail').style.display = 'none';
+      highlightCounty(null);
+    } else if (k === 'palette') {
+      openPalette();
+    } else if (k === 'legend') {
+      const open = togglePanelMobile('panel-legend');
+      setDockOn('legend', open || matchMedia('(min-width:769px)').matches);
+    } else if (k === 'boards') {
+      const open = togglePanelMobile('panel-boards');
+      setDockOn('boards', open || matchMedia('(min-width:769px)').matches);
+    } else if (k === 'method') {
+      const el = document.getElementById('panel-method');
+      const show = el.style.display === 'none';
+      el.style.display = show ? '' : 'none';
+      setDockOn('method', show);
+    }
+  };
+});
+
+/* ---- 命令面板 ---- */
+const palette = document.getElementById('palette');
+const paletteBackdrop = document.getElementById('palette-backdrop');
+const paletteInput = document.getElementById('palette-input');
+const paletteList = document.getElementById('palette-list');
+let palItems = [], palSel = 0;
+const COMMANDS = [
+  { kind: '命令', label: '重置视图', hint: '回到全国视图', run: () => { map.flyTo({ center: [104.5, 36.5], zoom: 4.0, essential: true }); } },
+  { kind: '命令', label: '只看困难县', hint: '到高速 50 公里以上', run: () => setBand(4) },
+  { kind: '命令', label: '只看通达县', hint: '到高速 10 公里以内', run: () => setBand(1) },
+  { kind: '命令', label: '显示全部县', hint: '清除分档筛选', run: () => setBand(0) },
+  { kind: '命令', label: '显示榜单', hint: '打开右侧榜单卡', run: () => { document.getElementById('panel-boards').classList.add('open'); setDockOn('boards', true); } },
+];
+function openPalette() {
+  palette.classList.add('open');
+  paletteBackdrop.classList.add('open');
+  paletteInput.value = '';
+  renderPalette('');
+  setTimeout(() => paletteInput.focus(), 60);
+}
+function closePalette() {
+  palette.classList.remove('open');
+  paletteBackdrop.classList.remove('open');
+  paletteInput.blur();
+}
+paletteBackdrop.onclick = closePalette;
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.classList.contains('open') ? closePalette() : openPalette(); }
+  if (e.key === 'Escape') {
+    if (palette.classList.contains('open')) closePalette();
+    else if (focusedPanel) exitFocus();
+    else closeSplit();
+  }
+  if (palette.classList.contains('open')) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); palSel = Math.min(palSel + 1, palItems.length - 1); paintPalSel(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); palSel = Math.max(palSel - 1, 0); paintPalSel(); }
+    if (e.key === 'Enter') { e.preventDefault(); const it = palItems[palSel]; if (it) runPalItem(it); }
+  }
+});
+function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function hi(text, q) {
+  if (!q) return escHtml(text);
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return escHtml(text);
+  return escHtml(text.slice(0, i)) + '<mark>' + escHtml(text.slice(i, i + q.length)) + '</mark>' + escHtml(text.slice(i + q.length));
+}
+function renderPalette(q) {
+  const query = (q || '').trim();
+  const counties = query
+    ? rows.filter(r => (r.province + r.name).includes(query) || r.name.includes(query)).slice(0, 7)
+    : rows.filter(r => !r.is_island).sort((a, b) => b.dist_motorway_km - a.dist_motorway_km).slice(0, 5);
+  const cmds = COMMANDS.filter(c => !query || c.label.includes(query) || c.hint.includes(query));
+  palItems = [
+    ...counties.map(r => ({ type: 'county', row: r, label: r.province + r.name, val: fmt(r.dist_motorway_km) + ' km', q })),
+    ...cmds.map(c => ({ type: 'cmd', cmd: c, label: c.label, val: c.hint, q })),
+  ];
+  palSel = 0;
+  paletteList.innerHTML = '';
+  if (!palItems.length) {
+    paletteList.innerHTML = '<div class="pal-item">没有匹配的结果 · 试试县名，如 荣成</div>';
+    return;
+  }
+  palItems.forEach((it, i) => {
+    const d = document.createElement('div');
+    d.className = 'pal-item' + (i === 0 ? ' sel' : '');
+    d.innerHTML = `<span class="p-kind">${it.type === 'county' ? '县' : '命令'}</span><span>${hi(it.label, query)}</span><span class="p-val">${escHtml(it.val)}</span>`;
+    d.onclick = () => runPalItem(it);
+    d.onmouseenter = () => { palSel = i; paintPalSel(); };
+    paletteList.appendChild(d);
+  });
+}
+function paintPalSel() {
+  paletteList.querySelectorAll('.pal-item').forEach((el, i) => el.classList.toggle('sel', i === palSel));
+}
+function runPalItem(it) {
+  closePalette();
+  if (it.type === 'county') flyToCounty(it.row);
+  else it.cmd.run();
+}
+paletteInput.addEventListener('input', () => renderPalette(paletteInput.value));
+
+/* ---- 图例内搜索（联想） ---- */
+const searchInput = document.getElementById('search');
+const suggest = document.getElementById('suggest');
+searchInput.addEventListener('focus', () => { if (searchInput.value.trim()) searchInput.dispatchEvent(new Event('input')); });
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim();
+  if (!q) { suggest.style.display = 'none'; return; }
+  const hits = rows.filter(r => (r.province + r.name).includes(q) || r.name.includes(q)).slice(0, 6);
+  if (!hits.length) { suggest.style.display = 'none'; return; }
+  suggest.innerHTML = '';
+  hits.forEach(r => {
+    const d = document.createElement('div');
+    d.innerHTML = `${escHtml(r.name)}<small>${escHtml(r.province)} · ${fmt(r.dist_motorway_km)} km</small>`;
+    d.onclick = () => { suggest.style.display = 'none'; searchInput.value = ''; flyToCounty(r); };
+    suggest.appendChild(d);
+  });
+  suggest.style.display = 'block';
+});
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { const first = suggest.querySelector('div'); if (first) first.click(); }
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#panel-legend')) suggest.style.display = 'none';
+});
+
+/* ---- 地图与数据 ---- */
+async function init() {
+  // 县界 6MB 单文件超推送上限，拆成 6 个 ~1MB 分片并行拉取后合并。
+  const [chunks, stats, mask] = await Promise.all([
+    Promise.all([1, 2, 3, 4, 5, 6].map(i => fetch(`data/boundaries-${i}.geojson`).then(r => r.json()))),
+    fetch('data/counties.json').then(r => r.json()),
+    fetch('data/china-mask.geojson').then(r => r.json()),
+  ]);
+  const bounds = { type: 'FeatureCollection', features: chunks.flatMap(c => c.features) };
+  boundsGeo = bounds;
+  rows = stats;
+  byAdcode = {};
+  rows.forEach(r => { byAdcode[String(r.adcode)] = r; });
+
+  const counts = {};
+  rows.forEach(r => { counts[r.band] = (counts[r.band] || 0) + 1; });
+  renderStats(rows);
+  buildLegend(counts);
+  buildSplitOptions(counts);
+  syncSplitBtn(counts);
+
+  const far = rows.filter(r => !r.is_island).sort((a, b) => b.dist_motorway_km - a.dist_motorway_km).slice(0, 10);
+  const farEl = document.getElementById('board-far');
+  far.forEach((r, i) => farEl.appendChild(boardRow(i + 1, r.name, r.province, fmt(r.dist_motorway_km) + ' km', r)));
+  const dense = rows.filter(r => r.area_km2 >= 50).sort((a, b) => b.motorway_density - a.motorway_density).slice(0, 10);
+  const denseEl = document.getElementById('board-dense');
+  dense.forEach((r, i) => denseEl.appendChild(boardRow(i + 1, r.name, r.province, fmt(r.motorway_density) + '', r)));
+
+  // 县界分级填色 + 中国域遮罩（放最上层：境外底图与路名全压住，境内从省界洞里透出）
+  const addCountyLayers = () => {
+    if (map.getLayer('county-fill')) return;
+    map.addSource('counties', { type: 'geojson', data: bounds });
+    map.addLayer({
+      id: 'county-fill', type: 'fill', source: 'counties',
+      paint: {
+        'fill-color': ['match', ['get', 'band'],
+          1, BANDS[0].color, 2, BANDS[1].color, 3, BANDS[2].color, 4, BANDS[3].color, '#333'],
+        'fill-opacity': 0.82,
+      },
+    }, 'waterway');
+    map.addLayer({
+      id: 'county-line', type: 'line', source: 'counties',
+      paint: { 'line-color': '#1f1409', 'line-width': 0.6, 'line-opacity': 0.7 },
+    }, 'waterway');
+    map.addLayer({
+      id: 'county-hover-fill', type: 'fill', source: 'counties',
+      filter: ['==', ['get', 'adcode'], ''],
+      paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.18 },
+    });
+    map.addLayer({
+      id: 'county-hover-line', type: 'line', source: 'counties',
+      filter: ['==', ['get', 'adcode'], ''],
+      paint: { 'line-color': '#f2a65e', 'line-width': 2 },
+    });
+    // 遮罩最后加（最上层），只盖中国境外
+    map.addSource('china-mask', { type: 'geojson', data: mask });
+    map.addLayer({
+      id: 'china-mask', type: 'fill', source: 'china-mask',
+      paint: { 'fill-color': '#1a120a', 'fill-opacity': 1 },
+    });
+    // 悬停层提到遮罩之上（县在洞里，本就透出；提到上面更保险）
+    map.moveLayer('county-hover-fill');
+    map.moveLayer('county-hover-line');
+
+    const tip = document.getElementById('tooltip');
+    map.on('mousemove', 'county-fill', (e) => {
+      const f = e.features && e.features[0];
+      if (!f) return;
+      const r = byAdcode[String(f.properties.adcode)];
+      map.getCanvas().style.cursor = 'pointer';
+      highlightCounty(f.properties.adcode);
+      tip.style.display = 'block';
+      tip.style.left = (e.point.x + 14) + 'px';
+      tip.style.top = (e.point.y + 14) + 'px';
+      tip.innerHTML = r
+        ? `<div class="t-name">${escHtml(r.province + r.name)} <small>${BAND_LABEL[r.band]}</small></div>
+           <div class="t-dist">${fmt(r.dist_motorway_km)} km</div>
+           <div>县内高速 ${fmt(r.motorway_km)} km · 全路网密度 ${fmt(r.road_density)}/100km²</div>`
+        : `<div class="t-name">${escHtml(f.properties.name)}</div>`;
+    });
+    map.on('mouseleave', 'county-fill', () => {
+      map.getCanvas().style.cursor = '';
+      tip.style.display = 'none';
+      if (document.getElementById('detail').style.display !== 'block') highlightCounty(null);
+    });
+    map.on('click', 'county-fill', (e) => {
+      const f = e.features && e.features[0];
+      if (!f) return;
+      const r = byAdcode[String(f.properties.adcode)];
+      if (r) flyToCounty(r);
+    });
+  };
+  if (map.loaded()) addCountyLayers(); else map.on('load', addCountyLayers);
+}
+init().catch(err => {
+  console.error(err);
+  document.getElementById('panel-title').querySelector('.sub').textContent = '数据加载失败：' + err.message;
+});
+</script>
+</body>
+</html>

@@ -1,113 +1,45 @@
-# GIS 人才求职市场可视化大屏
+# 全国县域高速可达性图谱
 
-基于 **325 条**（持续采集中）真实 GIS/测绘/遥感岗位数据的求职市场看板：
-PostGIS 空间数据库 → Express API → 自托管 OSM 矢量瓦片底图 → AntV L7（WebGL）时空可视化，
-一屏看清**地信岗位在哪、要什么技能、给多少钱**。
+哪些县上高速最难？本项目用 2874 个县级单位与最新路网数据回答这个问题。
 
-## 全国视角（带省级地名标注）
+**在线查看：https://luming606.github.io/highway-accessibility/**
 
-![dashboard](docs/preview-national.png)
+## 结论
 
-## 放大到城市级（路网分级 / 水系 / 绿地 / 铁路 / 道路名，分级色自动淡出）
+| 指标 | 数值 |
+| --- | --- |
+| 县均到高速距离 | 12.7 km |
+| 中位距离 | 4.4 km |
+| 10 公里内的县 | 85.4%（2455 县） |
+| 50 公里以上的县 | 132 县（4.6%） |
 
-![dashboard-city](docs/preview-city-zoom.png)
+最远的 10 个县（不含南海海岛区县）：西藏普兰 713.8 km、札达 657.2 km、改则 564.9 km、噶尔 531.7 km、革吉 531.6 km、黑龙江漠河 461.5 km、仲巴 451.0 km、日土 433.1 km、措勤 403.1 km、尼玛 342.8 km。南沙区 1025.6 km 为海岛、无陆路，单独标注。
 
-## 在线演示
+## 口径
 
-- **静态版**：[https://luming606.github.io/gis-job-dashboard/](https://luming606.github.io/gis-job-dashboard/)
-  （纯静态部署下自动使用构建期烘焙的矢量瓦片底图，数据随采集批次更新）
-- **本地全栈版**：自托管瓦片服务 + 全部功能，见下方「快速开始」
+- **主指标**：县城（DataV center 点）到最近高速（motorway）线的直线距离，分四档：<10 km 通达、10–30 km、30–50 km、>50 km 困难。直线距离，不是驾车距离与时间；“到高速线”不是“到高速出入口”。
+- **县内高速密度**：县界内高速里程 / 面积；**全路网密度**：县界内 motorway + trunk + primary + secondary 里程 / 面积。高速里程按分离式双向车道线计，密度仅用于县际比较。
+- 计算统一投影到自定义 Albers 等面积投影（`+proj=aea +lat_1=15 +lat_2=65 +lat_0=30 +lon_0=105 +datum=WGS84 +units=m`）。
 
-## 功能
+## 数据
 
-- **自托管底图**：全国 OSM 数据切片成 442 万矢量瓦片，MapLibre 引擎渲染，石墨深色主题，
-  含土地利用分区（居住/工业/商业/绿地）、水系、**铁路、机场、道路名、山峰与分级地名**，
-  地名按缩放级别逐级浮现（省 → 市 → 区县）；完全自主可控、无第三方地图 API 依赖。
-  纯静态部署（GitHub Pages）使用构建期烘焙的 z≤9 瓦片 + overzoom
-- **省级分级统计图**：岗位越多颜色越深（服务端聚合 + 省界 GeoJSON join），点击省面下钻明细
-- **点位热力图**：WebGL 核密度渲染，看清城市内部聚集（光谷、张江…）
-- **流向连线 / 聚合点**：产业集聚弧线（示意语义）；聚合点可点击查看公司/薪资/技能
-- **时间线动画**：按采集日期重放岗位"生长"过程；右下角显示当日新增条数
-- **交互式图表**（区别于常见静态大屏）：
-  - 城市榜**棒棒糖图**（末端直接标注岗位数）
-  - 技能榜**棒棒糖图**（与城市榜同款式，末端直接标注出现条数）
-  - 技能共现**3D 技能球**：可拖拽惯性旋转，悬停显示"出现 N 次 + 常共现技能组合"，并画出与常共现伙伴的连线
-  - 薪资**真箱线图**（最低/Q1/中位/Q3/最高，PostgreSQL `percentile_cont` 库内计算；暗金配色，与薰衣草的"岗位"叙事分开）
-- **设计语言**：参照 Linear 设计规范（近黑画布 / 发丝线面板 / 单一薰衣草强调色），无渐变发光；2026-11 美化：地图弹窗深色化、图例与分级色同源、底栏加高、骨架占位、指标数字滚动、比例尺、响应式断点
-- 图例与四个地图图层开关合并于右上角工具组，均可独立开关叠加
+- 区县边界：DataV GeoAtlas，2874 个县级单位（GCJ-02 转 WGS-84）。
+- 路网：Geofabrik 中国 OSM（2026-11-10 构建），motorway / trunk / primary / secondary。OSM 高速总长（车道线计）约 40.5 万公里，折半中线约 20.3 万公里，与官方约 19 万公里吻合。
+- 底图：OpenMapTiles 矢量瓦片（z0–z9），本地暖陶土样式；境外用中国域遮罩压暗，只显示中国境内。
 
-## 架构
+## 文件
 
-```
-采集（定向爬虫 + AI 辅助检索，手机号脱敏）
-        │ JSON
-        ▼
-ETL（Python：去重 / 薪资结构化 / 高德地理编码三级定位 / GCJ-02→WGS-84）
-        │
-        ▼
-PostgreSQL 16 + PostGIS 3.6（geom 4326 空间分析，lng/lat GCJ-02 展示）
-        │
-        ├──────────────────────────────┐
-        ▼                              ▼
-Express API（9 端点：GeoJSON、          OSM pbf(1.5GB) ──planetiler──▶ china.mbtiles(4.3GB, 442 万瓦片)
-percentile_cont 箱线、unnest 共现）              │
-        │                                        ▼
-        │                              自研瓦片服务 node:sqlite（XYZ/TMS 翻转、TileJSON、字形端点）
-        │                                        │
-        ▼                                        ▼
-Vue3 + Vite + AntV L7 + ECharts + MapLibre（自动探测瓦片服务，可用则挂自托管底图）
-        └── 纯静态模式：探测失败自动回退构建期烘焙的静态矢量瓦片（z≤9 + overzoom）与静态 JSON（GitHub Pages 部署）
-```
+- `index.html`：单页前端（MapLibre GL + 玻璃拟态 UI：液态胶囊、水滴分裂筛选、命令面板、停靠栏）。
+- `data/counties.json`：2874 县指标表；`data/boundaries-*.geojson`：县界（6 个分片）；`data/china-mask.geojson`：中国域遮罩。
+- `vendor/`：MapLibre GL JS 与 Inter 字体（本地化，字体已内嵌）。
+- `scripts/`：数据准备与计算（`fetch_counties.py`、`extract_osm.py`、`compute.py`、`spotcheck.py`）。
+- `static-tiles/`：底图矢量瓦片，仅发布分支（gh-pages）包含，不在 main 分支。
 
-**坐标系双轨制**：PostGIS `geom`(WGS-84/4326) 做空间分析；`lng/lat`(GCJ-02) 与高德生态对齐。
-接入 OSM（WGS-84）底图时，前端用 `web/src/gcj02.js` 把展示数据统一逆转换，保证与底图严格对齐。
-
-## 快速开始（本地全栈）
-
-前提：已安装 Docker 与 Docker Compose v2。
-
-- 数据库首次启动为空：跑 ETL 入库（需要高德 Web 服务 Key，见 `.env.example`）后大屏才有数据。
-- 自托管瓦片底图：首次启动前把 `china.mbtiles`（4.3GB，自托管瓦片数据）放入 `tiles/`。没有它也能先跑起来，大屏自动用烘焙的静态底图兜底，瓦片服务会在日志里提示缺少数据文件；放入文件后执行 `docker compose up -d tiles` 即可启用自托管底图。
-- 从零重建切片（需 JDK 21 + planetiler.jar + OSM 数据）见 docs/PLAN.md 与 HANDOVER.md。
+## 本地运行
 
 ```bash
-docker compose up --build
+python3 -m http.server 8000
+# 打开 http://localhost:8000/
 ```
 
-打开 http://localhost:5173：顶部指标牌显示岗位数即为 API 直连成功；地图能放大到城市级街道即为瓦片服务正常。
-
-停止：`docker compose down`（加 `-v` 会清空数据库卷）。
-
-## 数据说明与免责声明
-
-- 数据来自公开招聘平台（BOSS直聘、智联、测绘英才网、牛客、公司官网等）的**公开信息**，
-  仅用于学习研究，不做商业用途；源链接保留在每条记录（`source_url`）中
-- 联系人手机号等个人信息在入库前自动脱敏（`etl/pipeline.py`）
-- 流向连线是**示意语义**（非头部城市 → 省内最大集聚地 / 最近头部城市），不代表真实求职流向
-- 底图数据：© OpenStreetMap contributors（ODbL），切片产物 © OpenMapTiles（CC-BY）；
-  使用本仓库底图请保留上述署名
-- 如相关方认为数据使用不妥，请提 Issue，核实后移除
-
-## Roadmap
-
-- [x] ~~OSM → MBTiles → 自托管瓦片服务（替换内置底图）~~ ✅ v3 完成
-- [x] ~~Linear 设计语言重构 + 交互式图表（棒棒糖 / 极坐标 / 3D 技能球）~~ ✅ v5-v8 完成
-- [x] ~~大屏美化 polish（弹窗深色化 / 技能榜横向化 / 暗金薪资 / 比例尺 / 骨架占位 / 响应式）~~ ✅ 2026-11 完成
-- [x] ~~纯静态部署（GitHub Pages）烘焙矢量瓦片底图~~ ✅ v7 完成
-- [ ] 多期采集滚动（岗位增长时间线的真实多期数据）
-- [ ] 自然语言查询入口（"武汉有哪些 OpenLayers 的实习？"→ 空间 SQL + 地图联动）
-- [x] Docker Compose 一键部署
-
-## 技术要点（面试预演）
-
-1. **为什么 PostGIS**：GiST 空间索引 + `ST_DWithin` 球面距离，"光谷 10km 内岗位"一条 SQL；
-   MySQL 空间扩展函数与索引能力均不足
-2. **GCJ-02 / WGS-84 双轨制**：国内 WebGIS 绕不开的坐标系问题——分析用 4326、展示用 GCJ-02；
-   接 OSM（WGS-84）底图时前端统一逆转换，`web/src/gcj02.js` 与 ETL 用同一套国测局算法
-3. **自建瓦片服务**：planetiler 把全国 OSM 切成 442 万瓦片 MBTiles；瓦片服务的核心只是一个
-   XYZ→TMS 行号翻转（`tile_row = 2^z - 1 - y`）+ SQLite 查询，不需要任何重型依赖
-4. **中文标注零字体方案**：矢量地图注记通常依赖字形服务器，这里用 MapLibre 的
-   `localIdeographFontFamily` 让浏览器本地字体现场生成 SDF，配合分级 minzoom 实现
-   "放大到一定级别自动浮现地名"
-5. **静态化部署**：`server/export-static.mjs` 把 API 结果导出为静态 JSON，前端探测 API/瓦片服务
-   失败自动回退——同一份代码支持全栈与纯静态两种部署
+> 本仓库前身为 GIS 求职大屏（gis-job-dashboard），2026-11-12 起完全替换为高速可达性图谱。旧求职大屏源码保留在 git 历史中，可按需恢复。

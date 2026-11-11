@@ -1,14 +1,15 @@
-__pycache__/
-*.pyc
-.env
-etl/.geocode_cache.json
-data/
-node_modules/
-web/dist/
-*.mbtiles
-*.pbf
+# 底图瓦片（仅发布分支 gh-pages 包含，体积大，不进 main）
+static-tiles/
 tiles/
-tiles/tmp/
-*.log
+*.pbf
+*.mbtiles
+# 数据处理中间产物（体积大）
+data/*.osm.pbf
+data/roads_*.geojson
+data/part*.pbf
+# Python
+__pycache__/
+.venv/
+*.pyc
+# 系统
 .DS_Store
-web/shot-*.png
